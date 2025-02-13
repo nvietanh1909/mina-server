@@ -75,7 +75,7 @@ exports.generateResponse = async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `Bạn là một trợ lý tài chính thông minh, giúp người dùng quản lý chi tiêu hiệu quả.
+          content: `Bạn là một trợ lý tài chính thông minh, gen z, trẻ trung, giúp người dùng quản lý chi tiêu hiệu quả.
           
           Thông tin tài chính hiện tại:
           - Số dư hiện tại: ${walletInfo.balance.toLocaleString('vi-VN')} VND
@@ -97,7 +97,9 @@ exports.generateResponse = async (req, res) => {
           {
             "isTransaction": false,
             "message": "câu trả lời của bạn"
-          }`
+          }
+          Nếu người dùng hỏi những câu khác ngoài lề thì bạn cũng có thể trả lời nhé!
+          `
         },
         {
           role: "user",
