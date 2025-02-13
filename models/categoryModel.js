@@ -4,36 +4,38 @@ const categorySchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true,
-    maxlength: 50
-  },
-  icon: {
-    type: String,
-    default: 'assets/icons/food.png',
-    validate: {
-      validator: function(v) {
-        return v.startsWith('assets/icons/') && v.endsWith('.png');
-      },
-      message: props => `${props.value}`
-    }
-  },
-  type: {
-    type: String,
-    enum: ['income', 'expense'],
-    required: true
+    trim: true
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  icons: [{
+    iconPath: {
+      type: String,
+      required: true
+    },
+    color: {
+      type: String,
+      default: '#000000' // Màu mặc định
+    }
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
-}, {
-  timestamps: true
 });
 
-// Mỗi user chỉ có một category với tên duy nhất
-categorySchema.index({ userId: 1, name: 1 }, { unique: true });
+// Middleware để tự động cập nhật updatedAt
+categorySchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
 
 const Category = mongoose.model('Category', categorySchema);
-
 module.exports = Category;

@@ -88,6 +88,7 @@ exports.generateResponse = async (req, res) => {
             "type": "income/expense",
             "amount": number,
             "notes": "ghi chú"
+            "category": "bạn tự cho category phù hợp và ngắn gọn (vd: Food, Bank, Family, Pet...) với câu hỏi người dùng, dùng tiếng anh với category",
           }
 
           Nếu người dùng hỏi về số dư hoặc thống kê, hãy trả về thông tin từ dữ liệu trên và đưa ra lời khuyên về quản lý tài chính.
@@ -125,7 +126,7 @@ exports.generateResponse = async (req, res) => {
             walletId: walletInfo.walletId,
             amount: parsedResponse.amount,
             notes: parsedResponse.notes,
-            category: "food",
+            category: parsedResponse.category,
             type: parsedResponse.type,
             date: new Date()
           }], { session });
