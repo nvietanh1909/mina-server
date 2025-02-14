@@ -8,6 +8,7 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const categoryRoutes = require('./routes/categoryRoutes')
 const chatbotRoutes = require('./routes/chatbotRoutes')
+const otpRoutes = require('./routes/otpRoutes');
 
 
 dotenv.config();
@@ -27,6 +28,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/wallets', walletRoutes);
 app.use('/api/categories', categoryRoutes)
 app.use('/api/chatbot', chatbotRoutes)
+app.use('/api/otp', otpRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

@@ -8,6 +8,44 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// Helper function để lấy thông tin ví và giao dịch
+async function getWalletInfo(userId) {
+  try {
+    const wallet = await Wallet.findOne({ userId });
+    if (!wallet) return null;
+
+    // Lấy ngày đầu tháng và cuối tháng
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    // Lấy tất cả giao dịch trong tháng
+    const transactions = await Transaction.find({
+      userId,
+      date: { $gte: startOfMonth, $lte: endOfMonth }
+    });
+
+    // Tính tổng thu chi
+    const stats = transactions.reduce((acc, trans) => {
+      if (trans.type === 'income') {
+        acc.totalIncome += trans.amount;
+      } else {
+        acc.totalExpense += trans.amount;
+      }
+      return acc;
+    }, { totalIncome: 0, totalExpense: 0 });
+
+    return {
+      balance: wallet.balance,
+      walletId: wallet._id,
+      monthlyStats: stats
+    };
+  } catch (error) {
+    console.error('Get wallet info error:', error);
+    return null;
+  }
+}
+
 exports.generateResponse = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -22,9 +60,9 @@ exports.generateResponse = async (req, res) => {
       });
     }
 
-    // Tìm ví của user
-    const wallet = await Wallet.findOne({ userId }).session(session);
-    if (!wallet) {
+    // Lấy thông tin ví và giao dịch
+    const walletInfo = await getWalletInfo(userId);
+    if (!walletInfo) {
       await session.abortTransaction();
       return res.status(404).json({
         success: false,
@@ -37,26 +75,38 @@ exports.generateResponse = async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `Bạn là một trợ lý tài chính thông minh, giúp người dùng quản lý chi tiêu hiệu quả.
-          Nếu người dùng muốn thêm một khoản thu/chi, hãy phân tích và trả về JSON với format sau:
+          content: `Bạn là một trợ lý tài chính thông minh, gen z, trẻ trung, giúp người dùng quản lý chi tiêu hiệu quả.
+          
+          Thông tin tài chính hiện tại:
+          - Số dư hiện tại: ${walletInfo.balance.toLocaleString('vi-VN')} VND
+          - Tổng thu nhập tháng này: ${walletInfo.monthlyStats.totalIncome.toLocaleString('vi-VN')} VND
+          - Tổng chi tiêu tháng này: ${walletInfo.monthlyStats.totalExpense.toLocaleString('vi-VN')} VND
+
+          Nếu người dùng muốn thêm một khoản thu/chi, hãy phân tích và trả về JSON với format:
           {
             "isTransaction": true,
             "type": "income/expense",
             "amount": number,
             "notes": "ghi chú"
+            "category": "bạn tự cho category phù hợp và ngắn gọn (vd: Food, Bank, Family, Pet...) với câu hỏi người dùng, dùng tiếng anh với category",
           }
+
+          Nếu người dùng hỏi về số dư hoặc thống kê, hãy trả về thông tin từ dữ liệu trên và đưa ra lời khuyên về quản lý tài chính.
+          
           Nếu không phải yêu cầu thêm giao dịch, trả về:
           {
             "isTransaction": false,
             "message": "câu trả lời của bạn"
-          }`
+          }
+          Nếu người dùng hỏi những câu khác ngoài lề thì bạn cũng có thể trả lời nhé!
+          `
         },
         {
           role: "user",
           content: message
         }
       ],
-      max_tokens: 500,
+      max_tokens: 1000,
       temperature: 0.7
     });
 
@@ -69,16 +119,16 @@ exports.generateResponse = async (req, res) => {
       
       if (parsedResponse.isTransaction) {
         // Kiểm tra số dư khi chi tiêu
-        if (parsedResponse.type === 'expense' && wallet.balance < parsedResponse.amount) {
+        if (parsedResponse.type === 'expense' && walletInfo.balance < parsedResponse.amount) {
           responseMessage = 'Số dư trong ví không đủ để thực hiện giao dịch này.';
         } else {
           // Tạo transaction mới
           transaction = await Transaction.create([{
             userId,
-            walletId: wallet._id,
+            walletId: walletInfo.walletId,
             amount: parsedResponse.amount,
             notes: parsedResponse.notes,
-            category: "food",
+            category: parsedResponse.category,
             type: parsedResponse.type,
             date: new Date()
           }], { session });
@@ -86,19 +136,19 @@ exports.generateResponse = async (req, res) => {
           // Cập nhật số dư ví
           const updateAmount = parsedResponse.type === 'income' ? parsedResponse.amount : -parsedResponse.amount;
           await Wallet.findByIdAndUpdate(
-            wallet._id,
+            walletInfo.walletId,
             { $inc: { balance: updateAmount } },
             { session }
           );
 
-          responseMessage = `Đã thêm giao dịch thành công: ${parsedResponse.amount} ${parsedResponse.type === 'income' ? 'thu nhập' : 'chi tiêu'} cho ${parsedResponse.notes}`;
+          responseMessage = `Đã thêm giao dịch thành công: ${parsedResponse.amount.toLocaleString('vi-VN')} VND ${parsedResponse.type === 'income' ? 'thu nhập' : 'chi tiêu'} cho ${parsedResponse.notes}`;
         }
       } else {
         responseMessage = parsedResponse.message;
       }
     } catch (error) {
       console.error('Parse response error:', error);
-      responseMessage = 'Xin lỗi, tôi không hiểu yêu cầu của bạn. Vui lòng thử lại.';
+      responseMessage = botResponse; 
     }
 
     // Lưu cuộc hội thoại vào database
@@ -115,7 +165,9 @@ exports.generateResponse = async (req, res) => {
       data: {
         message,
         response: responseMessage,
-        transaction: transaction ? transaction[0] : null
+        transaction: transaction ? transaction[0] : null,
+        balance: walletInfo.balance,
+        monthlyStats: walletInfo.monthlyStats
       }
     });
 

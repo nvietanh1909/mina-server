@@ -1,164 +1,144 @@
 const Category = require('../models/categoryModel');
 
-exports.createCategory = async (req, res) => {
+// Get all categories for a user
+exports.getAllCategories = async (req, res) => {
   try {
-    const { name, icon, type } = req.body;
+    const categories = await Category.find({ userId: req.user.id });
+    res.status(200).json({
+      success: true,
+      data: categories
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
+  }
+};
 
-    const category = await Category.create({
-      name,
-      icon: icon || 'default-icon',
-      type,
+// Get single category
+exports.getCategory = async (req, res) => {
+  try {
+    const category = await Category.findOne({
+      _id: req.params.id,
       userId: req.user.id
     });
 
-    res.status(201).json({
-      status: 'success',
-      data: {
-        category
-      }
-    });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Đã tồn tại danh mục này'
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
       });
     }
 
-    res.status(400).json({
-      status: 'error',
-      message: error.message
-    });
-  }
-};
-
-exports.getCategories = async (req, res) => {
-  try {
-    const { type } = req.query;
-
-    const query = { userId: req.user.id };
-    if (type) query.type = type;
-
-    const categories = await Category.find(query);
-
     res.status(200).json({
-      status: 'success',
-      results: categories.length,
-      data: {
-        categories
-      }
+      success: true,
+      data: category
     });
   } catch (error) {
-    res.status(400).json({
-      status: 'error',
-      message: error.message
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
     });
   }
 };
 
+// Create category
+exports.createCategory = async (req, res) => {
+  try {
+    const { name, icons } = req.body;
+    const category = await Category.create({
+      name,
+      userId: req.user.id,
+      icons: icons.map(icon => ({
+        iconPath: icon.iconPath,
+        color: icon.color
+      }))
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: messages
+      });
+    }
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
+  }
+};
+
+// Update category
 exports.updateCategory = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, icon } = req.body;
+    let category = await Category.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
 
-    const category = await Category.findOneAndUpdate(
-      { 
-        _id: id, 
-        userId: req.user.id 
-      },
-      { 
-        name, 
-        icon: icon || 'default-icon' 
-      },
-      { 
-        new: true, 
-        runValidators: true 
-      }
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const updatedCategory = await Category.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { ...req.body },
+      { new: true, runValidators: true }
     );
 
-    if (!category) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Không tìm thấy danh mục'
-      });
-    }
-
     res.status(200).json({
-      status: 'success',
-      data: {
-        category
-      }
+      success: true,
+      data: updatedCategory
     });
   } catch (error) {
-    // Xử lý lỗi trùng tên category
-    if (error.code === 11000) {
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
-        status: 'error',
-        message: 'Đã tồn tại danh mục này'
+        success: false,
+        error: messages
       });
     }
-
-    res.status(400).json({
-      status: 'error',
-      message: error.message
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
     });
   }
 };
 
+// Delete category
 exports.deleteCategory = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const category = await Category.findOneAndDelete({ 
-      _id: id, 
-      userId: req.user.id 
+    const category = await Category.findOne({
+      _id: req.params.id,
+      userId: req.user.id
     });
 
     if (!category) {
       return res.status(404).json({
-        status: 'error',
-        message: 'Không tìm thấy danh mục'
+        success: false,
+        error: 'Category not found'
       });
     }
 
+    await category.remove();
     res.status(200).json({
-      status: 'success',
-      message: 'Xóa danh mục thành công'
+      success: true,
+      data: {}
     });
   } catch (error) {
-    res.status(400).json({
-      status: 'error',
-      message: error.message
-    });
-  }
-};
-
-exports.getCategoryById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const category = await Category.findOne({ 
-      _id: id, 
-      userId: req.user.id 
-    });
-
-    if (!category) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Không tìm thấy danh mục'
-      });
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        category
-      }
-    });
-  } catch (error) {
-    res.status(400).json({
-      status: 'error',
-      message: error.message
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
     });
   }
 };
