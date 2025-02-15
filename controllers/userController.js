@@ -48,7 +48,7 @@ exports.register = async (req, res) => {
         userId: user[0]._id,
         name: "Wallet",
         balance: 0,
-        monthlyLimit: 0,
+        monthlyLimit: 1000000,
         isDefault: true
       }], { session, ordered: true }); // Thêm ordered: true
 

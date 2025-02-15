@@ -98,7 +98,7 @@ exports.generateResponse = async (req, res) => {
             "isTransaction": false,
             "message": "câu trả lời của bạn"
           }
-          Nếu người dùng hỏi những câu khác ngoài lề thì bạn cũng có thể trả lời nhé!
+          Nếu người dùng hỏi những câu khác ngoài lề thì bạn cũng có thể trả lời nhé và các câu trả lời đều dùng hoàn toàn là tiếng việt!
           `
         },
         {
