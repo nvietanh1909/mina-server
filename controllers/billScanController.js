@@ -15,24 +15,28 @@ exports.analyzeBill = async (req, res) => {
       });
     }
 
-    // Phân tích text bằng OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
-          content: `Bạn là một hệ thống phân tích hóa đơn. Phân tích đoạn text sau và trích xuất:
-          1. Số tiền tổng cộng
-          2. Phân loại vào một trong các danh mục: Food, Transport, Shopping, Entertainment, Health, Education,... tùy vào nội dung hóa đơn
-          3. Tạo ghi chú ngắn gọn mô tả nội dung hóa đơn
-          bạn hãy phân tích rõ nội dung và trả về kết quả phân tích.
-          Trả về CHÍNH XÁC theo định dạng JSON sau:
-          {
-            "amount": số tiền (number), (không được có bất kì dấu gì, chỉ có số),
-            "category": "danh mục (string)",
-            "notes": "ghi chú mô tả (string)"
-          }`
+          content: `Bạn là một hệ thống phân tích hóa đơn thông minh, có khả năng đọc hiểu hóa đơn, đa ngôn ngữ và chuyển đổi tiền tệ.
 
+            Nhiệm vụ của bạn là:
+            1. Phân tích và làm sạch text đầu vào
+            2. Nhận diện loại tiền tệ và quy đổi sang VND theo tỷ giá sau:
+              - 1 THB (Baht Thái) = 650 VND
+              - 1 USD (Đô la Mỹ) = 24,500 VND
+              - Các đơn vị tiền khác tự động tra cứu và quy đổi
+            3. Phân loại hóa đơn vào các danh mục dựa vào text nhé
+            4. Tạo ghi chú ngắn gọn mô tả nội dung chính của hóa đơn
+
+            Trả về kết quả theo định dạng JSON:
+            {
+              "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách),
+              "category": "danh mục hóa don (string)" dùng tiếng anh,
+              "notes": "ghi chú ngắn gọn mô tả nội dung hóa đơn (string)"
+            }`
         },
         {
           role: "user",

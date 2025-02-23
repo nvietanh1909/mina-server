@@ -14,31 +14,31 @@ async function getWalletInfo(userId) {
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) return null;
 
-    // Lấy ngày đầu tháng và cuối tháng
+    // Lấy tất cả giao dịch của user
+    const allTransactions = await Transaction.find({ userId })
+      .sort({ date: -1 }); // Sắp xếp theo thời gian mới nhất
+
+    // Tính tổng thu chi tháng này
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-    // Lấy tất cả giao dịch trong tháng
-    const transactions = await Transaction.find({
-      userId,
-      date: { $gte: startOfMonth, $lte: endOfMonth }
-    });
-
-    // Tính tổng thu chi
-    const stats = transactions.reduce((acc, trans) => {
-      if (trans.type === 'income') {
-        acc.totalIncome += trans.amount;
-      } else {
-        acc.totalExpense += trans.amount;
-      }
-      return acc;
-    }, { totalIncome: 0, totalExpense: 0 });
+    const monthlyStats = allTransactions
+      .filter(trans => trans.date >= startOfMonth && trans.date <= endOfMonth)
+      .reduce((acc, trans) => {
+        if (trans.type === 'income') {
+          acc.totalIncome += trans.amount;
+        } else {
+          acc.totalExpense += trans.amount;
+        }
+        return acc;
+      }, { totalIncome: 0, totalExpense: 0 });
 
     return {
       balance: wallet.balance,
       walletId: wallet._id,
-      monthlyStats: stats
+      monthlyStats,
+      transactions: allTransactions
     };
   } catch (error) {
     console.error('Get wallet info error:', error);
@@ -75,31 +75,47 @@ exports.generateResponse = async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `Bạn là một trợ lý tài chính thông minh, gen z, trẻ trung, giúp người dùng quản lý chi tiêu hiệu quả.
+          content: `Bạn là một trợ lý tài chính thông minh, giúp người dùng quản lý chi tiêu hiệu quả.
           
           Thông tin tài chính hiện tại:
           - Số dư hiện tại: ${walletInfo.balance.toLocaleString('vi-VN')} VND
           - Tổng thu nhập tháng này: ${walletInfo.monthlyStats.totalIncome.toLocaleString('vi-VN')} VND
           - Tổng chi tiêu tháng này: ${walletInfo.monthlyStats.totalExpense.toLocaleString('vi-VN')} VND
-
-          Nếu người dùng muốn thêm một khoản thu/chi, hãy phân tích và trả về JSON với format:
+    
+          QUAN TRỌNG - Quy tắc xử lý tin nhắn:
+          1. Khi người dùng nhắn về một khoản tiền, hãy tự động nhận diện và tạo giao dịch:
+             - "Được chuyển 1tr tiền lương" → Tạo giao dịch thu (income)
+             - "Rút 500k ATM" → Tạo giao dịch chi (expense)
+             - "Nạp 200k ví" → Tạo giao dịch thu (income)
+    
+          2. Với mỗi giao dịch, tự động phân loại category phù hợp:
+             - Thu: Salary, Gift, Investment, Transfer, Other
+             - Chi: Food, Transport, Utilities, Shopping, Healthcare, Entertainment, Other
+    
+          3. Khi người dùng yêu cầu xem giao dịch, trả về theo định dạng:
+             "Dưới đây là danh sách thu và chi tiêu gần đây của bạn:
+             - Thu/Chi: [Số tiền] VND - [Ghi chú] ([Ngày])"
+    
+          4. Với số tiền, tự động chuyển đổi:
+             - 1tr, 1m, 1 triệu → 1000000
+             - 1k, 1 nghìn → 1000
+             
+          Nếu phát hiện giao dịch trong tin nhắn, trả về JSON:
           {
             "isTransaction": true,
             "type": "income/expense",
             "amount": number,
-            "notes": "ghi chú"
-            "category": "bạn tự cho category phù hợp và ngắn gọn (vd: Food, Bank, Family, Pet...) với câu hỏi người dùng, dùng tiếng anh với category",
+            "notes": "ghi chú giao dịch",
+            "category": "category phù hợp" 
           }
-
-          Nếu người dùng hỏi về số dư hoặc thống kê, hãy trả về thông tin từ dữ liệu trên và đưa ra lời khuyên về quản lý tài chính.
-          
-          Nếu không phải yêu cầu thêm giao dịch, trả về:
-          {
-            "isTransaction": false,
-            "message": "câu trả lời của bạn"
-          }
-          Nếu người dùng hỏi những câu khác ngoài lề thì bạn cũng có thể trả lời nhé và các câu trả lời đều dùng hoàn toàn là tiếng việt!
-          `
+    
+          Lịch sử giao dịch:
+          ${walletInfo.transactions.map(trans => 
+            `- ${trans.type === 'income' ? 'Thu' : 'Chi'}: ${trans.amount.toLocaleString('vi-VN')} VND - ${trans.notes} (${new Date(trans.date).toLocaleDateString('vi-VN')})`
+          ).join('\n')}
+    
+          Với các câu hỏi khác, trả về text bình thường bằng tiếng Việt.
+          Phân tích và lời khuyên dựa trên dữ liệu giao dịch của người dùng.`
         },
         {
           role: "user",
@@ -114,7 +130,8 @@ exports.generateResponse = async (req, res) => {
     let responseMessage = '';
     let transaction = null;
 
-    try {
+    // Kiểm tra xem response có phải là JSON hay không
+    if (botResponse.trim().startsWith('{')) {
       const parsedResponse = JSON.parse(botResponse);
       
       if (parsedResponse.isTransaction) {
@@ -143,12 +160,9 @@ exports.generateResponse = async (req, res) => {
 
           responseMessage = `Đã thêm giao dịch thành công: ${parsedResponse.amount.toLocaleString('vi-VN')} VND ${parsedResponse.type === 'income' ? 'thu nhập' : 'chi tiêu'} cho ${parsedResponse.notes}`;
         }
-      } else {
-        responseMessage = parsedResponse.message;
       }
-    } catch (error) {
-      console.error('Parse response error:', error);
-      responseMessage = botResponse; 
+    } else {
+      responseMessage = botResponse;
     }
 
     // Lưu cuộc hội thoại vào database
