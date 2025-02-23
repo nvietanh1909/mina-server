@@ -1,7 +1,7 @@
 {
   "name": "mina-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "node --test",
     "test:watch": "node --test --watch",
