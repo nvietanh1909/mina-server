@@ -23,11 +23,6 @@ app.use(cors());
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// Route mặc định để kiểm tra
-app.get('/', (req, res) => {
-  res.send('Hello from Mina Backend!');
-});
-
 // Connect to MongoDB
 connectDB();
 

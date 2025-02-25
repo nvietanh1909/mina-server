@@ -1,10 +1,9 @@
-const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const db = require('../config/firebase-config');
 
 class OTPService {
     constructor() {
+      // Khởi tạo nodemailer transporter
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -12,6 +11,9 @@ class OTPService {
           pass: process.env.EMAIL_PASS
         }
       });
+
+      // Lưu trữ OTP trong bộ nhớ
+      this.otpStorage = new Map();
     }
   
     // Tạo mã OTP 6 chữ số
@@ -19,35 +21,32 @@ class OTPService {
       return crypto.randomInt(100000, 999999).toString();
     }
   
+    // Lưu OTP vào bộ nhớ thay vì Firebase
     async saveOTP(email, otp) {
-        try {
-          const otpRef = db.collection('otps').doc(email);
-          const otpData = {
-            otp: otp,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.FieldValue.serverTimestamp()
-          };
-      
-          // Lưu dữ liệu
-          await otpRef.set(otpData, { merge: true });
-      
-          // Log thông tin để kiểm tra
-          console.log('Đã lưu OTP vào Firestore:');
-          console.log('Email:', email);
-          console.log('OTP Data:', otpData);
-      
-          // Kiểm tra lại dữ liệu vừa lưu
-          const docSnapshot = await otpRef.get();
-          if (docSnapshot.exists) {
-            console.log('Dữ liệu đã được lưu thành công:');
-            console.log(docSnapshot.data());
-          } else {
-            console.log('Không tìm thấy document sau khi lưu');
-          }
-        } catch (error) {
-          console.error('Lỗi khi lưu OTP vào Firestore:', error);
-        }
+      try {
+        const currentTime = new Date();
+        const expiryTime = new Date(currentTime.getTime() + 10 * 60 * 1000); // 10 phút
+        
+        const otpData = {
+          otp: otp,
+          createdAt: currentTime,
+          expiresAt: expiryTime
+        };
+        
+        // Lưu vào Map
+        this.otpStorage.set(email, otpData);
+        
+        // Log thông tin để kiểm tra
+        console.log('Đã lưu OTP:');
+        console.log('Email:', email);
+        console.log('OTP Data:', otpData);
+        
+        return true;
+      } catch (error) {
+        console.error('Lỗi khi lưu OTP:', error);
+        return false;
       }
+    }
   
     // Gửi OTP qua email
     async sendOTPByEmail(email) {
@@ -55,7 +54,7 @@ class OTPService {
         // Tạo mã OTP
         const otp = this.generateOTP();
   
-        // Lưu OTP vào Firestore
+        // Lưu OTP vào bộ nhớ
         await this.saveOTP(email, otp);
   
         // Cấu hình email
@@ -128,24 +127,24 @@ class OTPService {
     // Xác thực OTP
     async verifyOTP(email, userProvidedOTP) {
       try {
-        const otpDoc = await db
-          .collection('otps')
-          .doc(email)
-          .get();
+        // Lấy OTP từ bộ nhớ
+        const otpData = this.otpStorage.get(email);
   
-        if (!otpDoc.exists) {
+        if (!otpData) {
           return { 
             success: false, 
             message: 'Không tìm thấy OTP' 
           };
         }
   
-        const otpData = otpDoc.data();
-        const currentTime = admin.firestore.Timestamp.now();
-        const otpCreatedTime = otpData.createdAt;
-  
-        const timeDiff = currentTime.seconds - otpCreatedTime.seconds;
+        // Kiểm tra thời gian hết hạn
+        const currentTime = new Date();
+        const timeDiff = (currentTime - otpData.createdAt) / 1000; // Đổi ra giây
+        
         if (timeDiff > 600) { // 10 phút
+          // Xóa OTP đã hết hạn
+          this.otpStorage.delete(email);
+          
           return { 
             success: false, 
             message: 'OTP đã hết hạn' 
@@ -160,7 +159,7 @@ class OTPService {
         }
   
         // Xóa OTP sau khi xác thực thành công
-        await db.collection('otps').doc(email).delete();
+        this.otpStorage.delete(email);
   
         return { 
           success: true, 
@@ -177,4 +176,4 @@ class OTPService {
     }
   }
   
-  module.exports = OTPService;
+module.exports = OTPService;
