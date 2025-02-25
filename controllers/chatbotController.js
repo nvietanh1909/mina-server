@@ -85,26 +85,15 @@ exports.generateResponse = async (req, res) => {
           QUAN TRỌNG - Quy tắc xử lý tin nhắn:
           1. Khi người dùng nhắn về một khoản tiền, hãy tự động nhận diện và tạo giao dịch:
              - "Được chuyển 1tr tiền lương" → Tạo giao dịch thu (income)
-             - "Rút 500k ATM" → Tạo giao dịch chi (expense)
              - "Nạp 200k ví" → Tạo giao dịch thu (income)
     
           2. Với mỗi giao dịch, tự động phân loại category phù hợp:
-             - Thu: Salary, Gift, Investment, Transfer, Other
-             - Chi: Food, Transport, Utilities, Shopping, Healthcare, Entertainment, Other
-    
-          3. Khi người dùng yêu cầu xem giao dịch, trả về theo định dạng:
-             "Dưới đây là danh sách thu và chi tiêu gần đây của bạn:
-             - Thu/Chi: [Số tiền] VND - [Ghi chú] ([Ngày])"
-    
-          4. Với số tiền, tự động chuyển đổi:
-             - 1tr, 1m, 1 triệu → 1000000
-             - 1k, 1 nghìn → 1000
              
           Nếu phát hiện giao dịch trong tin nhắn, trả về JSON:
           {
             "isTransaction": true,
             "type": "income/expense",
-            "amount": number,
+            "amount": number, (luôn trả về tiền việt nam đồng)
             "notes": "ghi chú giao dịch",
             "category": "category phù hợp" 
           }
