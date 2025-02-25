@@ -10,7 +10,7 @@ const walletRoutes = require('./routes/walletRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const otpRoutes = require('./routes/otpRoutes');
-const billScanRoutes = require('./routes/billscanRoutes');
+const billScanRoutes = require('./routes/billScanRoutes');
 
 dotenv.config();
 
@@ -25,7 +25,7 @@ app.use(express.json());
 
 // Route mặc định để kiểm tra
 app.get('/', (req, res) => {
-  res.send('Hello from Mina Backend on Vercel!');
+  res.send('Hello from Mina Backend!');
 });
 
 // Connect to MongoDB
