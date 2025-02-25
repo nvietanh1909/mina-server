@@ -3,3 +3,4 @@ config/firebase-key/serviceAccountKey.json
 
 # Environment files
 .env
+.vercel
