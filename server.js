@@ -39,7 +39,7 @@ app.use('/api/reports', reportRoutes);
 
 // Default route
 app.get('/', (req, res) => {
-  res.send('Welcome to Mina API');
+  res.send('mina-server: active');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
