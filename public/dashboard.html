@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mina Server - Hệ thống quản lý tài chính thông minh</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-wallet"></i>
+                    <span>Mina Server</span>
+                </div>
+                <div class="header-right">
+                    <nav class="nav-links">
+                        <a href="#">Trang chủ</a>
+                        <a href="#">Tài liệu API</a>
+                        <a href="#">Hướng dẫn</a>
+                        <a href="#">Hỗ trợ</a>
+                    </nav>
+                    <div class="status">
+                        <div class="indicator"></div>
+                        <span>Đang hoạt động</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <section class="hero">
+        <div class="container">
+            <h1>Hệ thống quản lý tài chính cá nhân thông minh</h1>
+            <p>Nền tảng API mạnh mẽ để tích hợp và quản lý dữ liệu tài chính cá nhân, giao dịch thông minh và phân tích chi tiêu.</p>
+            
+            <div class="server-meta">
+                <div class="meta-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Trạng thái: Hoạt động</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fas fa-plug"></i>
+                    <span>Cổng: <span id="port-value">5000</span></span>
+                </div>
+                <div class="meta-item">
+                    <i class="fas fa-database"></i>
+                    <span>MongoDB: Đã kết nối</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <main>
+        <div class="container">
+            <section class="server-status">
+                <div class="status-content">
+                    <div class="status-left">
+                        <h3>
+                            Trạng thái hệ thống
+                            <span class="status-badge">
+                                <span class="dot"></span>
+                                Đang hoạt động
+                            </span>
+                        </h3>
+                        <p class="status-text">Hệ thống Mina Server đang hoạt động tối ưu và sẵn sàng phục vụ. Tất cả các dịch vụ và API endpoints đều đang hoạt động bình thường.</p>
+                        
+                        <div class="status-metrics">
+                            <div class="metric">
+                                <span class="metric-title">API Rate</span>
+                                <span class="metric-value">99.8%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-title">Response</span>
+                                <span class="metric-value">185ms</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-title">Môi trường</span>
+                                <span class="metric-value" id="env-value">Development</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="status-right">
+                        <div class="server-time-title">Thời gian máy chủ</div>
+                        <div class="current-time" id="current-time">Loading...</div>
+                        
+                        <div class="uptime">
+                            <div class="uptime-label">Uptime</div>
+                            <div class="uptime-bar">
+                                <div class="uptime-progress"></div>
+                            </div>
+                            <div class="uptime-value">99.8%</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="dashboard">
+                <div class="section-title">
+                    <i class="fas fa-chart-line"></i>
+                    <h2>Tổng quan hệ thống</h2>
+                    <span class="line"></span>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="icon">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <h3>Trạng thái Server</h3>
+                        <div class="value">Hoạt động</div>
+                        <div class="stat-footer">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Tất cả dịch vụ đang hoạt động</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon">
+                            <i class="fas fa-plug"></i>
+                        </div>
+                        <h3>Cổng kết nối</h3>
+                        <div class="value" id="port-display">5000</div>
+                        <div class="stat-footer">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Đang lắng nghe kết nối</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <h3>Môi trường</h3>
+                        <div class="value" id="env-display">Development</div>
+                        <div class="stat-footer">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Cấu hình từ .env</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <h3>Cơ sở dữ liệu</h3>
+                        <div class="value">MongoDB</div>
+                        <div class="stat-footer">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Kết nối thành công</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="api-section">
+                <div class="section-title">
+                    <i class="fas fa-code"></i>
+                    <h2>API Endpoints</h2>
+                    <span class="line"></span>
+                </div>
+                
+                <div class="endpoints">
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-user"></i>
+                                /api/users
+                            </div>
+                            <p class="endpoint-description">Quản lý người dùng, xác thực, đăng nhập và đăng ký tài khoản</p>
+                        </div>
+                        <span class="method get">
+                            <i class="fas fa-arrow-down"></i>
+                            GET
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-exchange-alt"></i>
+                                /api/transactions
+                            </div>
+                            <p class="endpoint-description">Quản lý giao dịch tài chính, thu chi, tạo và theo dõi giao dịch</p>
+                        </div>
+                        <span class="method post">
+                            <i class="fas fa-arrow-up"></i>
+                            POST
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-wallet"></i>
+                                /api/wallets
+                            </div>
+                            <p class="endpoint-description">Quản lý ví điện tử, tài khoản ngân hàng và số dư</p>
+                        </div>
+                        <span class="method get">
+                            <i class="fas fa-arrow-down"></i>
+                            GET
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-tags"></i>
+                                /api/categories
+                            </div>
+                            <p class="endpoint-description">Quản lý danh mục giao dịch, phân loại chi tiêu và thu nhập</p>
+                        </div>
+                        <span class="method get">
+                            <i class="fas fa-arrow-down"></i>
+                            GET
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-robot"></i>
+                                /api/chatbot
+                            </div>
+                            <p class="endpoint-description">Dịch vụ chatbot tư vấn tài chính và hỗ trợ người dùng</p>
+                        </div>
+                        <span class="method post">
+                            <i class="fas fa-arrow-up"></i>
+                            POST
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-key"></i>
+                                /api/otp
+                            </div>
+                            <p class="endpoint-description">Xác thực OTP, bảo mật hai lớp cho người dùng</p>
+                        </div>
+                        <span class="method post">
+                            <i class="fas fa-arrow-up"></i>
+                            POST
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-file-invoice"></i>
+                                /api/bills
+                            </div>
+                            <p class="endpoint-description">Quét và phân tích hóa đơn tự động bằng AI</p>
+                        </div>
+                        <span class="method post">
+                            <i class="fas fa-arrow-up"></i>
+                            POST
+                        </span>
+                    </div>
+                    <div class="endpoint">
+                        <div class="endpoint-left">
+                            <div class="endpoint-path">
+                                <i class="fas fa-chart-pie"></i>
+                                /api/reports
+                            </div>
+                            <p class="endpoint-description">Tạo báo cáo tài chính, phân tích chi tiêu và lập kế hoạch</p>
+                        </div>
+                        <span class="method get">
+                            <i class="fas fa-arrow-down"></i>
+                            GET
+                        </span>
+                    </div>
+                </div>
+            </section>
+            
+            <section>
+                <div class="section-title">
+                    <i class="fas fa-book"></i>
+                    <h2>Tài liệu hướng dẫn</h2>
+                    <span class="line"></span>
+                </div>
+                
+                <div class="documentation">
+                    <div class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <h3 class="doc-title">Tài liệu API</h3>
+                        <p class="doc-description">Tài liệu chi tiết về các API endpoints, tham số và response format.</p>
+                        <a href="#" class="doc-link">Xem tài liệu <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <div class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <h3 class="doc-title">Hướng dẫn tích hợp</h3>
+                        <p class="doc-description">Hướng dẫn tích hợp Mina Server vào các ứng dụng và dịch vụ bên thứ ba.</p>
+                        <a href="#" class="doc-link">Xem hướng dẫn <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <div class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <h3 class="doc-title">Bảo mật & Xác thực</h3>
+                        <p class="doc-description">Thông tin về cách thức xác thực, bảo mật API và quản lý quyền truy cập.</p>
+                        <a href="#" class="doc-link">Tìm hiểu thêm <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <div class="footer-logo">
+                        <i class="fas fa-wallet"></i>
+                        <div class="footer-logo-text">Mina Server</div>
+                    </div>
+                    <p class="footer-tagline">Nền tảng API tài chính cá nhân mạnh mẽ, được thiết kế để hỗ trợ quản lý tài chính thông minh và hiệu quả.</p>
+                    <div class="footer-meta">
+                        <a href="#">Chính sách bảo mật</a>
+                        <a href="#">Điều khoản sử dụng</a>
+                        <a href="#">Liên hệ</a>
+                    </div>
+                </div>
+                
+                <div class="footer-right">
+                    <div class="footer-links">
+                        <h3>Liên kết nhanh</h3>
+                        <ul>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Trang chủ</a></li>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Tài liệu API</a></li>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Hướng dẫn</a></li>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Hỗ trợ</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="footer-links">
+                        <h3>Hỗ trợ</h3>
+                        <ul>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> FAQ</a></li>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Trung tâm hỗ trợ</a></li>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Báo lỗi</a></li>
+                            <li><a href="#"><i class="fas fa-chevron-right"></i> Liên hệ nhóm phát triển</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="copyright">
+                <div>
+                    &copy; 2025 Mina Server. Tất cả các quyền được bảo lưu. Thiết kế bởi <a href="#">Mina Team</a>
+                </div>
+                <div class="social-icons">
+                    <a href="#"><i class="fab fa-github"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-linkedin"></i></a>
+                    <a href="#"><i class="fab fa-discord"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <script>
+        // Hiển thị thời gian server hiện tại
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('vi-VN', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('current-time').textContent = timeString;
+        }
+        
+        // Cập nhật thông tin PORT từ biến môi trường
+        const portValue = window.location.port || '5000';
+        document.getElementById('port-value').textContent = portValue;
+        document.getElementById('port-display').textContent = portValue;
+        
+        // Cập nhật môi trường dựa trên hostname
+        const hostname = window.location.hostname;
+        const envValue = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'Development' : 'Production';
+        document.getElementById('env-value').textContent = envValue;
+        document.getElementById('env-display').textContent = envValue;
+        
+        // Cập nhật thời gian mỗi giây
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Hiệu ứng scroll cho các phần tử
+        function reveal() {
+            const reveals = document.querySelectorAll('.stat-card, .endpoint, .doc-card');
+            
+            for (let i = 0; i < reveals.length; i++) {
+                const windowHeight = window.innerHeight;
+                const elementTop = reveals[i].getBoundingClientRect().top;
+                const elementVisible = 150;
+                
+                if (elementTop < windowHeight - elementVisible) {
+                    reveals[i].classList.add('active');
+                }
+            }
+        }
+        
+        window.addEventListener('scroll', reveal);
+        window.addEventListener('load', reveal);
+    </script>
+</body>
+</html>

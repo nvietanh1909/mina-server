@@ -95,7 +95,7 @@ exports.generateResponse = async (req, res) => {
             "type": "income/expense",
             "amount": number, (luôn trả về tiền việt nam đồng)
             "notes": "ghi chú giao dịch",
-            "category": "category phù hợp" (bằng tiếng anh) 
+            "category": "category phù hợp" (bằng tiếng anh viết hoa chữ đầu VD: Food, Shopping, Salary) 
           }
     
           Lịch sử giao dịch:
