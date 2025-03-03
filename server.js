@@ -11,6 +11,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const billScanRoutes = require('./routes/billScanRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 dotenv.config();
 
@@ -34,6 +35,12 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/bills', billScanRoutes);
+app.use('/api/reports', reportRoutes);
+
+// Default route
+app.get('/', (req, res) => {
+  res.send('Welcome to Mina API');
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
