@@ -36,10 +36,10 @@ app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/bills', billScanRoutes);
 app.use('/api/reports', reportRoutes);
-
+app.use(express.static('public'));
 // Default route
 app.get('/', (req, res) => {
-  res.send('mina-server: active');
+  res.sendFile(__dirname + '/public/dashboard.html');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
