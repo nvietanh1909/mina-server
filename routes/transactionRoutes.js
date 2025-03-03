@@ -4,7 +4,7 @@ const transactionController = require('../controllers/transactionController');
 const auth = require('../middleware/authMiddleware');
 
 // Sử dụng middleware xác thực cho tất cả các route
-router.use(auth);
+// router.use(auth);
 
 // Tạo giao dịch mới
 router.post('/', transactionController.createTransaction);
