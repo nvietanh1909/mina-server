@@ -35,6 +35,11 @@ app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/bills', billScanRoutes);
 
+// Default route
+app.get('/', (req, res) => {
+  res.send('Welcome to Mina API');
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
