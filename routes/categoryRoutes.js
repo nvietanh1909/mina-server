@@ -10,7 +10,7 @@ const {
 const auth = require('../middleware/authMiddleware');
 
 // Áp dụng middleware protect cho tất cả routes
-// router.use(auth);
+router.use(auth);
 
 // Định nghĩa các routes
 router

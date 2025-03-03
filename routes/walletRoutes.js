@@ -4,7 +4,7 @@ const walletController = require('../controllers/walletController')
 const auth = require('../middleware/authMiddleware');
 
 // Tất cả các routes đều yêu cầu xác thực
-// router.use(auth);
+router.use(auth);
 
 // Tạo và lấy danh sách ví
 router.route('/')
