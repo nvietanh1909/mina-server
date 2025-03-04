@@ -23,11 +23,8 @@ exports.analyzeBill = async (req, res) => {
           content: `Bạn là một hệ thống phân tích hóa đơn thông minh, có khả năng đọc hiểu hóa đơn, đa ngôn ngữ và chuyển đổi tiền tệ.
 
             Nhiệm vụ của bạn là:
-            1. Phân tích và làm sạch text đầu vào
-            2. Nhận diện loại tiền tệ và quy đổi sang VND theo tỷ giá sau:
-              - 1 THB (Baht Thái) = 650 VND
-              - 1 USD (Đô la Mỹ) = 24,500 VND
-              - Các đơn vị tiền khác tự động tra cứu và quy đổi
+            1. Phân tích và làm sạch text đầu vào và nhận biết tổng tiền nằm ở đâu do detect có thể bị lỗi vài chỗ
+            2. Nhận diện loại tiền tệ và quy đổi sang VND theo tỷ giá cập nhật tại thời điểm hiện tại:
             3. Phân loại hóa đơn vào các danh mục dựa vào text nhé
             4. Tạo ghi chú ngắn gọn mô tả nội dung chính của hóa đơn
 
@@ -43,7 +40,7 @@ exports.analyzeBill = async (req, res) => {
           content: text
         }
       ],
-      temperature: 0.7,
+      temperature: 1,
       max_tokens: 500
     });
 

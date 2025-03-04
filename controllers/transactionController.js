@@ -1,7 +1,6 @@
 const Transaction = require('../models/transactionModel');
 const Wallet = require('../models/walletModel');
 const mongoose = require('mongoose');
-const updateReportAfterTransaction  = require('./reportController');
 
 exports.createTransaction = async (req, res) => {
   const session = await mongoose.startSession();
@@ -40,8 +39,6 @@ exports.createTransaction = async (req, res) => {
       type,
       date: date || new Date()
     }], { session });
-
-    await updateReportAfterTransaction(transaction);
 
     // Cập nhật số dư ví
     const updateAmount = type === 'income' ? amount : -amount;
@@ -207,8 +204,6 @@ exports.deleteTransaction = async (req, res) => {
       });
     }
 
-    await updateReportAfterTransaction(transaction);
-    
     res.status(200).json({
       status: 'success',
       message: 'Xóa giao dịch thành công'
