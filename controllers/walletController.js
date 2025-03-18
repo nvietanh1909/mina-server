@@ -154,7 +154,7 @@ exports.createWallet = async (req, res) => {
       }
   
       await wallet.deleteOne({ session });
-      await session.commitTransaction();
+      await session.commitTransaction();  
   
       res.status(200).json({
         status: 'success',

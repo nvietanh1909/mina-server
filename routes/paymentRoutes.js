@@ -8,7 +8,6 @@ function createHash(data, secret) {
   return crypto.createHmac('sha512', secret).update(data).digest('hex');
 }
 
-// Route tạo URL thanh toán
 router.post('/create_payment_url', (req, res) => {
   const { amount, orderId, orderInfo } = req.body;
 
@@ -34,7 +33,6 @@ router.post('/create_payment_url', (req, res) => {
     vnp_CreateDate: createDate,
   };
 
-  // Sắp xếp tham số theo thứ tự alphabet
   const sortedParams = Object.keys(vnp_Params)
     .sort()
     .reduce((result, key) => {
@@ -42,12 +40,10 @@ router.post('/create_payment_url', (req, res) => {
       return result;
     }, {});
 
-  // Tạo chuỗi ký hash
   const signData = new URLSearchParams(sortedParams).toString();
   const vnp_SecureHash = createHash(signData, vnp_HashSecret);
   sortedParams.vnp_SecureHash = vnp_SecureHash;
 
-  // Tạo URL thanh toán
   const paymentUrl = `${vnp_Url}?${new URLSearchParams(sortedParams).toString()}`;
 
   res.json({ paymentUrl });
@@ -60,7 +56,6 @@ router.get('/vnpay_return', (req, res) => {
   delete vnp_Params['vnp_SecureHash'];
   delete vnp_Params['vnp_SecureHashType'];
 
-  // Sắp xếp tham số theo thứ tự alphabet
   const sortedParams = Object.keys(vnp_Params)
     .sort()
     .reduce((result, key) => {
@@ -68,7 +63,6 @@ router.get('/vnpay_return', (req, res) => {
       return result;
     }, {});
 
-  // Tạo chữ ký kiểm tra
   const signData = new URLSearchParams(sortedParams).toString();
   const vnp_HashSecret = process.env.VNP_HASHSECRET;
   const checkSum = createHash(signData, vnp_HashSecret);
