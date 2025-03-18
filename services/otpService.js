@@ -17,9 +17,9 @@ class OTPService {
     }
   
     // Tạo mã OTP 6 chữ số
-    generateOTP() {
-      return crypto.randomInt(100000, 999999);  
-    }
+      generateOTP() {
+        return crypto.randomInt(100000, 999999);  
+      }
   
     // Lưu OTP vào bộ nhớ thay vì Firebase
     async saveOTP(email, otp) {
@@ -152,6 +152,20 @@ class OTPService {
         }
   
         if (otpData.otp !== userProvidedOTP) {
+          return { 
+            success: false, 
+            message: 'OTP không chính xác' 
+          };
+        }
+
+        if (Number(otpData.otp) !== Number(userProvidedOTP)) {
+          return { 
+            success: false, 
+            message: 'OTP không chính xác' 
+          };
+        }
+
+        if (String(otpData.otp) !== String(userProvidedOTP)) {
           return { 
             success: false, 
             message: 'OTP không chính xác' 

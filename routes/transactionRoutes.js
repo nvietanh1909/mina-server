@@ -12,6 +12,9 @@ router.post('/', transactionController.createTransaction);
 // Lấy danh sách giao dịch
 router.get('/', transactionController.getTransactions);
 
+// Thống kê giao dịch
+router.get('/stats', transactionController.getTransactionStats);
+
 // Lấy chi tiết một giao dịch
 router.get('/:id', transactionController.getTransaction);
 
@@ -20,8 +23,5 @@ router.patch('/:id', transactionController.updateTransaction);
 
 // Xóa giao dịch
 router.delete('/:id', transactionController.deleteTransaction);
-
-// Thống kê giao dịch
-router.get('/stats', transactionController.getTransactionStats);
 
 module.exports = router;

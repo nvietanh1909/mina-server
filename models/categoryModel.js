@@ -3,7 +3,20 @@ const mongoose = require('mongoose');
 const categorySchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, 'Name is required'],
+    unique: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  icon: {
+    type: String,
+    trim: true
+  },
+  color: {
+    type: String,
     trim: true
   },
   userId: {
@@ -29,6 +42,8 @@ const categorySchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
 // Middleware để tự động cập nhật updatedAt

@@ -1,10 +1,20 @@
+const mongoose = require('mongoose');
 const Wallet = require('../models/walletModel'); 
 const User = require('../models/userModel'); 
-const Transaction = require('../models/transactionModel')
+const Transaction = require('../models/transactionModel');
+
 exports.createWallet = async (req, res) => {
     try {
       const { name, description, currency } = req.body;
       
+      // Validate required fields
+      if (!name || !currency) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Vui lòng cung cấp đầy đủ thông tin'
+        });
+      }
+
       const defaultWallet = await Wallet.findOne({ 
         userId: req.user.id,
         isDefault: true 
