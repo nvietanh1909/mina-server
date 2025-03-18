@@ -30,7 +30,7 @@ exports.analyzeBill = async (req, res) => {
 
             Trả về kết quả theo định dạng JSON:
             {
-              "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách),
+              "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách)(dùng toàn bộ là tiền việt nam),
               "category": "danh mục hóa don (string)" dùng tiếng anh,
               "notes": "ghi chú ngắn gọn mô tả nội dung hóa đơn (string)"
             }`

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "node --test",
-    "test:watch": "node --test --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "start": "node server.js",
     "dev": "node server.js"
   },
@@ -34,7 +34,12 @@
     "querystring": "^0.2.1"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@babel/core": "^7.26.10",
+    "@babel/preset-env": "^7.26.9",
+    "babel-jest": "^29.7.0",
+    "concurrently": "^9.1.2",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
   },
   "repository": {
     "type": "git",
