@@ -5,8 +5,7 @@ const {
   getCategory,
   createCategory,
   updateCategory,
-  deleteCategory,
-  countCategories
+  deleteCategory
 } = require('../controllers/categoryController');
 const auth = require('../middleware/authMiddleware');
 
@@ -18,9 +17,6 @@ router
   .route('/')
   .get(getAllCategories)
   .post(createCategory);
-
-// Route đếm số lượng category
-router.get('/count', countCategories);
 
 router
   .route('/:id')
