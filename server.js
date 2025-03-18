@@ -12,7 +12,6 @@ const chatbotRoutes = require('./routes/chatbotRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const billScanRoutes = require('./routes/billScanRoutes');
 const reportRoutes = require('./routes/reportRoutes');
-const paymentRoutes = require('./routes/paymentRoutes'); // Thêm route mới
 
 dotenv.config();
 
@@ -37,9 +36,7 @@ app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/bills', billScanRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use(express.static('public'));
-
 // Default route
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/dashboard.html');
