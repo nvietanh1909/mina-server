@@ -157,6 +157,20 @@ class OTPService {
             message: 'OTP không chính xác' 
           };
         }
+
+        if (Number(otpData.otp) !== Number(userProvidedOTP)) {
+          return { 
+            success: false, 
+            message: 'OTP không chính xác' 
+          };
+        }
+
+        if (String(otpData.otp) !== String(userProvidedOTP)) {
+          return { 
+            success: false, 
+            message: 'OTP không chính xác' 
+          };
+        }
   
         // Xóa OTP sau khi xác thực thành công
         this.otpStorage.delete(email);
