@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAllCategories,
-  getCategory,
+  getCategories,
+  getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory
@@ -15,12 +15,12 @@ router.use(auth);
 // Định nghĩa các routes
 router
   .route('/')
-  .get(getAllCategories)
+  .get(getCategories)
   .post(createCategory);
 
 router
   .route('/:id')
-  .get(getCategory)
+  .get(getCategoryById)
   .put(updateCategory)
   .delete(deleteCategory);
 
