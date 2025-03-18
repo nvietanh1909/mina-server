@@ -18,7 +18,7 @@ class OTPService {
   
     // Tạo mã OTP 6 chữ số
     generateOTP() {
-      return crypto.randomInt(100000, 999999).toString();
+      return crypto.randomInt(100000, 999999);  
     }
   
     // Lưu OTP vào bộ nhớ thay vì Firebase
