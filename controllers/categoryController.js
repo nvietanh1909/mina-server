@@ -142,3 +142,19 @@ exports.deleteCategory = async (req, res) => {
     });
   }
 };
+
+// Count categories for a user
+exports.countCategories = async (req, res) => {
+  try {
+    const count = await Category.countDocuments({ userId: req.user.id });
+    res.status(200).json({
+      success: true,
+      data: { count }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    });
+  }
+};

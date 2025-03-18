@@ -12,36 +12,39 @@ const chatbotRoutes = require('./routes/chatbotRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const billScanRoutes = require('./routes/billScanRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Thêm middleware cors
+// Middleware
 app.use(cors());
-
-// Middleware to parse JSON bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
-connectDB();
-
-// Use routes
+// Routes
 app.use('/api/users', userRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/wallets', walletRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/otp', otpRoutes);
-app.use('/api/bills', billScanRoutes);
+app.use('/api/bill-scan', billScanRoutes);
 app.use('/api/reports', reportRoutes);
-app.use(express.static('public'));
-// Default route
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/dashboard.html');
-});
+app.use('/api/payments', paymentRoutes);
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Connect to database
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
+
+// Start server
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
