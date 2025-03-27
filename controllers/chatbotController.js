@@ -5,7 +5,7 @@ const { OpenAI } = require('openai');
 const mongoose = require('mongoose');
 
 const openai = new OpenAI({
-  apiKey: process.env.X_AI_KEY
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Helper function để lấy thông tin ví và giao dịch
