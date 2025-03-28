@@ -16,7 +16,9 @@ const categoryController = {
         name,
         description,
         icon,
-        color
+        color,
+        userId: req.user.id,
+        isDefault: false
       });
 
       res.status(201).json({
@@ -41,7 +43,13 @@ const categoryController = {
 
   getCategories: async (req, res) => {
     try {
-      const categories = await Category.find();
+      // Lấy cả category mặc định và category của user
+      const categories = await Category.find({
+        $or: [
+          { isDefault: true },
+          { userId: req.user.id }
+        ]
+      });
       res.status(200).json({
         success: true,
         data: categories
@@ -57,7 +65,13 @@ const categoryController = {
 
   getCategoryById: async (req, res) => {
     try {
-      const category = await Category.findById(req.params.id);
+      const category = await Category.findOne({
+        _id: req.params.id,
+        $or: [
+          { isDefault: true },
+          { userId: req.user.id }
+        ]
+      });
 
       if (!category) {
         return res.status(404).json({
@@ -81,22 +95,29 @@ const categoryController = {
 
   updateCategory: async (req, res) => {
     try {
-      const category = await Category.findByIdAndUpdate(
+      // Chỉ cho phép cập nhật category không phải mặc định
+      const category = await Category.findOne({
+        _id: req.params.id,
+        userId: req.user.id,
+        isDefault: false
+      });
+
+      if (!category) {
+        return res.status(404).json({
+          success: false,
+          message: 'Category not found or cannot be updated'
+        });
+      }
+
+      const updatedCategory = await Category.findByIdAndUpdate(
         req.params.id,
         req.body,
         { new: true, runValidators: true }
       );
 
-      if (!category) {
-        return res.status(404).json({
-          success: false,
-          message: 'Category not found'
-        });
-      }
-
       res.status(200).json({
         success: true,
-        data: category
+        data: updatedCategory
       });
     } catch (error) {
       if (error.code === 11000) {
@@ -116,14 +137,21 @@ const categoryController = {
 
   deleteCategory: async (req, res) => {
     try {
-      const category = await Category.findByIdAndDelete(req.params.id);
+      // Chỉ cho phép xóa category không phải mặc định
+      const category = await Category.findOne({
+        _id: req.params.id,
+        userId: req.user.id,
+        isDefault: false
+      });
 
       if (!category) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found'
+          message: 'Category not found or cannot be deleted'
         });
       }
+
+      await Category.findByIdAndDelete(req.params.id);
 
       res.status(200).json({
         success: true,

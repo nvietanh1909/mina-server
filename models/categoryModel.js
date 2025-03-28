@@ -4,7 +4,6 @@ const categorySchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Name is required'],
-    unique: true,
     trim: true
   },
   description: {
@@ -22,7 +21,13 @@ const categorySchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: function() {
+      return !this.isDefault; // userId chỉ required khi không phải category mặc định
+    }
+  },
+  isDefault: {
+    type: Boolean,
+    default: false
   },
   icons: [{
     iconPath: {
@@ -44,6 +49,12 @@ const categorySchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Tạo compound index để đảm bảo tên category là unique trong phạm vi của một user
+categorySchema.index({ name: 1, userId: 1 }, { 
+  unique: true,
+  partialFilterExpression: { isDefault: false } // Chỉ áp dụng cho category không phải mặc định
 });
 
 // Middleware để tự động cập nhật updatedAt

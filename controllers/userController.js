@@ -3,6 +3,7 @@ const Wallet = require('../models/walletModel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Category = require('../models/categoryModel');
+const mongoose = require('mongoose');
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -14,119 +15,37 @@ exports.register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
-    // Validate required fields
-    if (!email || !password || !name) {
+    // Check if user exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
       return res.status(400).json({
         status: 'error',
-        message: 'Please provide email, password and name'
+        message: 'User already exists'
       });
     }
 
-    // Check existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Email is already in use'
-      });
-    }
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Start a session for transaction
-    const session = await User.startSession();
+    // Start transaction
+    const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
       // Create user
       const user = await User.create([{
         email,
-        password,
+        password: hashedPassword,
         name
-      }], { session, ordered: true }); // Thêm ordered: true
+      }], { session });
 
       // Create default wallet
       const wallet = await Wallet.create([{
         userId: user[0]._id,
-        name: "Wallet",
-        balance: 0,
-        monthlyLimit: 1000000,
-        isDefault: true
-      }], { session, ordered: true }); // Thêm ordered: true
-
-      // Create default categories
-      const categories = await Category.create([
-        {
-          name: 'Food',
-          userId: user[0]._id,
-          icons: [
-            { iconPath: '🍔', color: '#FF5733' },
-            { iconPath: '🍕', color: '#FF5733' },
-            { iconPath: '🍣', color: '#FF5733' },
-            { iconPath: '🍜', color: '#FF5733' },
-            { iconPath: '🍦', color: '#FF5733' },
-            { iconPath: '🍪', color: '#FF5733' }
-          ]
-        },
-        {
-          name: 'Transport',
-          userId: user[0]._id,
-          icons: [
-            { iconPath: '🚗', color: '#33FF57' },
-            { iconPath: '🚕', color: '#33FF57' },
-            { iconPath: '🚲', color: '#33FF57' },
-            { iconPath: '🚄', color: '#33FF57' },
-            { iconPath: '🚌', color: '#33FF57' },
-            { iconPath: '🚀', color: '#33FF57' }
-          ]
-        },
-        {
-          name: 'Shopping',
-          userId: user[0]._id,
-          icons: [
-            { iconPath: '👗', color: '#3357FF' },
-            { iconPath: '👠', color: '#3357FF' },
-            { iconPath: '👒', color: '#3357FF' },
-            { iconPath: '👜', color: '#3357FF' },
-            { iconPath: '🕶️', color: '#3357FF' },
-            { iconPath: '🧥', color: '#3357FF' }
-          ]
-        },
-        {
-          name: 'Entertainment',
-          userId: user[0]._id,
-          icons: [
-            { iconPath: '🎬', color: '#FF33F6' },
-            { iconPath: '🎤', color: '#FF33F6' },
-            { iconPath: '🎮', color: '#FF33F6' },
-            { iconPath: '🎳', color: '#FF33F6' },
-            { iconPath: '🎭', color: '#FF33F6' },
-            { iconPath: '🎨', color: '#FF33F6' }
-          ]
-        },
-        {
-          name: 'Health',
-          userId: user[0]._id,
-          icons: [
-            { iconPath: '💊', color: '#33FFF6' },
-            { iconPath: '🩺', color: '#33FFF6' },
-            { iconPath: '🌡️', color: '#33FFF6' },
-            { iconPath: '💉', color: '#33FFF6' },
-            { iconPath: '🧴', color: '#33FFF6' },
-            { iconPath: '🚑', color: '#33FFF6' }
-          ]
-        },
-        {
-          name: 'Education',
-          userId: user[0]._id,
-          icons: [
-            { iconPath: '📚', color: '#F6FF33' },
-            { iconPath: '🎓', color: '#F6FF33' },
-            { iconPath: '📝', color: '#F6FF33' },
-            { iconPath: '📐', color: '#F6FF33' },
-            { iconPath: '📏', color: '#F6FF33' },
-            { iconPath: '📖', color: '#F6FF33' }
-          ]
-        }
-      ], { session, ordered: true }); // Thêm ordered: true
+        name: 'My Wallet',
+        balance: 0
+      }], { session });
 
       // Generate token
       const token = generateToken(user[0]._id);
@@ -148,11 +67,6 @@ exports.register = async (req, res) => {
             name: wallet[0].name,
             balance: wallet[0].balance
           },
-          categories: categories.map(cat => ({
-            id: cat._id,
-            name: cat.name,
-            icons: cat.icons
-          })),
           token
         }
       });

@@ -1,7 +1,4 @@
-require('dotenv').config(); 
 const mongoose = require('mongoose');
-
-const mongoURI = process.env.MONGODB_URI;
 
 let isConnected = false;
 
@@ -9,6 +6,11 @@ async function connectDB() {
   if (isConnected) {
     console.log('Already connected to MongoDB');
     return;
+  }
+
+  const mongoURI = process.env.MONGODB_URI;
+  if (!mongoURI) {
+    throw new Error('MONGODB_URI is not defined in environment variables');
   }
 
   try {

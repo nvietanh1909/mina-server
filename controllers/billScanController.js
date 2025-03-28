@@ -20,7 +20,7 @@ exports.analyzeBill = async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `Bạn là một hệ thống phân tích hóa đơn thông minh, có khả năng đọc hiểu hóa đơn, đa ngôn ngữ và chuyển đổi tiền tệ.
+          content: `Bạn là một hệ thống phân tích hóa đơn thông minh, có khả năng đọc hiểu hóa đơn, đa ngôn ngữ và chuyển đổi tiền tệ toàn bộ sang Việt Nam.
 
             Nhiệm vụ của bạn là:
             1. Phân tích và làm sạch text đầu vào và nhận biết tổng tiền nằm ở đâu do detect có thể bị lỗi vài chỗ
@@ -31,6 +31,7 @@ exports.analyzeBill = async (req, res) => {
             Trả về kết quả theo định dạng JSON:
             {
               "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách)(dùng toàn bộ là tiền việt nam),
+              "date": theo định dạng dd-MM-yyyy (string) nếu hóa đơn không có ngày thì mặc định là ngày hôm nay bằng tiếng anh VD 18 Mar 2025,
               "category": "danh mục hóa don (string)" dùng tiếng anh,
               "notes": "ghi chú ngắn gọn mô tả nội dung hóa đơn (string)"
             }`
@@ -41,7 +42,7 @@ exports.analyzeBill = async (req, res) => {
         }
       ],
       temperature: 1,
-      max_tokens: 500
+      max_tokens: 200
     });
 
     const analysisResult = JSON.parse(completion.choices[0].message.content);
