@@ -3,6 +3,7 @@ const Transaction = require('../models/transactionModel');
 const Wallet = require('../models/walletModel');
 const { OpenAI } = require('openai');
 const mongoose = require('mongoose');
+const Category = require('../models/categoryModel');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -128,6 +129,20 @@ exports.generateResponse = async (req, res) => {
         if (parsedResponse.type === 'expense' && walletInfo.balance < parsedResponse.amount) {
           responseMessage = 'Số dư trong ví không đủ để thực hiện giao dịch này.';
         } else {
+          // Lấy thông tin category để lấy icon
+          const categoryInfo = await Category.findOne({ 
+            name: parsedResponse.category,
+            userId 
+          }).session(session);
+
+          if (!categoryInfo) {
+            await session.abortTransaction();
+            return res.status(404).json({
+              success: false,
+              message: 'Không tìm thấy danh mục'
+            });
+          }
+
           // Tạo transaction mới
           transaction = await Transaction.create([{
             userId,
@@ -135,6 +150,7 @@ exports.generateResponse = async (req, res) => {
             amount: parsedResponse.amount,
             notes: parsedResponse.notes,
             category: parsedResponse.category,
+            categoryIcon: categoryInfo.icons[0], // Lấy icon đầu tiên của category
             type: parsedResponse.type,
             date: new Date()
           }], { session });

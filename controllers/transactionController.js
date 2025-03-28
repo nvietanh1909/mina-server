@@ -1,12 +1,13 @@
 const Transaction = require('../models/transactionModel');
 const Wallet = require('../models/walletModel');
+const Category = require('../models/categoryModel');
 const mongoose = require('mongoose');
 
 exports.createTransaction = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { amount, notes, category, type, date } = req.body;
+    const { amount, notes, category, type, date, icon } = req.body;
 
     const wallet = await Wallet.findOne({ 
       userId: req.user.id 
@@ -17,6 +18,22 @@ exports.createTransaction = async (req, res) => {
       return res.status(404).json({
         status: 'error',
         message: 'Không tìm thấy ví'
+      });
+    }
+
+    // Kiểm tra category tồn tại
+    const categoryInfo = await Category.findOne({ 
+      $or: [
+        { name: category, userId: req.user.id },
+        { name: category, isDefault: true }
+      ]
+    }).session(session);
+
+    if (!categoryInfo) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy danh mục'
       });
     }
 
@@ -36,6 +53,7 @@ exports.createTransaction = async (req, res) => {
       amount,
       notes: notes || '',
       category,
+      icon: icon || '💰', // Nếu không có icon thì dùng icon mặc định
       type,
       date: date || new Date()
     }], { session });
@@ -149,20 +167,44 @@ exports.getTransaction = async (req, res) => {
 
 exports.updateTransaction = async (req, res) => {
   try {
-    const { amount, notes, category, type, date } = req.body;
+    const { amount, notes, category, type, date, icon } = req.body;
+
+    // Kiểm tra category nếu được cập nhật
+    if (category) {
+      const categoryInfo = await Category.findOne({ 
+        $or: [
+          { name: category, userId: req.user.id },
+          { name: category, isDefault: true }
+        ]
+      });
+
+      if (!categoryInfo) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Không tìm thấy danh mục'
+        });
+      }
+    }
+
+    const updateData = {
+      amount,
+      notes,
+      category,
+      type,
+      date: date || new Date()
+    };
+
+    // Cập nhật icon nếu được cung cấp
+    if (icon !== undefined) {
+      updateData.icon = icon || '💰'; // Nếu gửi icon rỗng thì dùng icon mặc định
+    }
 
     const updatedTransaction = await Transaction.findOneAndUpdate(
       { 
         _id: req.params.id, 
         userId: req.user.id 
       },
-      { 
-        amount, 
-        notes, 
-        category, 
-        type, 
-        date: date || new Date() 
-      },
+      updateData,
       { 
         new: true, 
         runValidators: true 

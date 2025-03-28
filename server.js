@@ -23,7 +23,6 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB()
   .then(async () => {
-    // Khởi tạo category mặc định
     await initDefaultCategories();
   })
   .catch(err => {

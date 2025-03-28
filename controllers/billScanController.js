@@ -8,7 +8,7 @@ exports.analyzeBill = async (req, res) => {
   try {
     const { text } = req.body;
 
-    if (!text) {
+    if (!text) {  
       return res.status(400).json({
         success: false,
         message: 'OCR text is required'
