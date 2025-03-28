@@ -15,7 +15,7 @@ const initDefaultCategories = async () => {
     const defaultCategory = await Category.create({
       ...defaultCategories[0],
       isDefault: true,
-      userId: null // Category mặc định không thuộc về user nào
+      userId: null
     });
 
     console.log('Default category created successfully');
