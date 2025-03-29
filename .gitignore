@@ -4,7 +4,6 @@ config/firebase-key/serviceAccountKey.json
 # Environment files
 .env
 .env.test
-tests/
 .vercel
 
 node_modules
