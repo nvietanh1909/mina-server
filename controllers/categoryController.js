@@ -3,7 +3,7 @@ const Category = require('../models/categoryModel');
 const categoryController = {
   createCategory: async (req, res) => {
     try {
-      const { name, description, icon, color } = req.body;
+      const { name, description, icon, color, icons } = req.body;
 
       if (!name) {
         return res.status(400).json({
@@ -17,6 +17,7 @@ const categoryController = {
         description,
         icon,
         color,
+        icons,
         userId: req.user.id,
         isDefault: false
       });
