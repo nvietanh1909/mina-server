@@ -46,7 +46,7 @@ walletSchema.statics.createDefaultWallet = async function(userId) {
   return this.create({
     userId,
     name: 'Default Wallet',
-    monthlyLimit: 0,
+    monthlyLimit: 10000000, // 10 triệu VND
     description: 'Default Wallet',
     balance: 0,
     isDefault: true
