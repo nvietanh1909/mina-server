@@ -14,5 +14,6 @@ router.use(auth);
 router.get('/profile', userController.getProfile);
 router.patch('/profile', userController.updateProfile);
 router.post('/avatar', upload.single('avatar'), userController.uploadAvatar);
+router.post('/change-password', userController.changePassword);
 
 module.exports = router;

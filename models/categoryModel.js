@@ -51,11 +51,17 @@ const categorySchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Tạo compound index để đảm bảo tên category là unique trong phạm vi của một user
-categorySchema.index({ name: 1, userId: 1 }, { 
-  unique: true,
-  partialFilterExpression: { isDefault: false } // Chỉ áp dụng cho category không phải mặc định
-});
+// Tạo compound index để đảm bảo tên category chỉ unique trong phạm vi của một user và không phải category mặc định
+categorySchema.index(
+  { name: 1, userId: 1 }, 
+  { 
+    unique: true,
+    partialFilterExpression: { 
+      userId: { $exists: true },  // Chỉ áp dụng khi có userId
+      isDefault: { $eq: false }   // Và không phải category mặc định
+    } 
+  }
+);
 
 // Middleware để tự động cập nhật updatedAt
 categorySchema.pre('save', function(next) {
