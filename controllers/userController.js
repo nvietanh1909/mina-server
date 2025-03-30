@@ -307,6 +307,15 @@ exports.changePassword = async (req, res) => {
       });
     }
 
+    // Check if new password is same as current password
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại'
+      });
+    }
+
     // Set new password - it will be hashed by the pre('save') middleware
     user.password = newPassword;
     await user.save();
