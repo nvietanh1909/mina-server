@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: [2, 'Name must be at least 2 characters long']
   },
+  avatar: {
+    type: String,
+    default: null
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date
 }, {
