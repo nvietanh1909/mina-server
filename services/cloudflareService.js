@@ -2,6 +2,21 @@ const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/cl
 const crypto = require('crypto');
 const sharp = require('sharp');
 
+// Kiểm tra biến môi trường
+const requiredEnvVars = [
+  'CLOUDFLARE_ENDPOINT',
+  'CLOUDFLARE_ACCESS_KEY_ID',
+  'CLOUDFLARE_SECRET_ACCESS_KEY',
+  'CLOUDFLARE_BUCKET_NAME',
+  'CLOUDFLARE_PUBLIC_URL'
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}`);
+  }
+}
+
 const s3Client = new S3Client({
   region: 'auto',
   endpoint: process.env.CLOUDFLARE_ENDPOINT,

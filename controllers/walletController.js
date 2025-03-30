@@ -90,7 +90,7 @@ exports.createWallet = async (req, res) => {
   
   exports.updateWallet = async (req, res) => {
     try {
-      const { name, description, isDefault } = req.body;
+      const { name, description, isDefault, monthlyLimit } = req.body;
   
       const wallet = await Wallet.findOne({
         _id: req.params.id,
@@ -107,6 +107,7 @@ exports.createWallet = async (req, res) => {
       if (name) wallet.name = name;
       if (description) wallet.description = description;
       if (typeof isDefault === 'boolean') wallet.isDefault = isDefault;
+      if (typeof monthlyLimit === 'number' && monthlyLimit >= 0) wallet.monthlyLimit = monthlyLimit;
   
       await wallet.save();
   
