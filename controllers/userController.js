@@ -4,6 +4,23 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Category = require('../models/categoryModel');
 const mongoose = require('mongoose');
+const { uploadFile, deleteFile } = require('../services/cloudflareService');
+const multer = require('multer');
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -127,6 +144,55 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No file uploaded'
+      });
+    }
+
+    // Get current user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    // Delete old avatar if exists
+    if (user.avatar) {
+      await deleteFile(user.avatar);
+    }
+
+    // Upload new avatar
+    const avatarUrl = await uploadFile(req.file, 'avatars');
+
+    // Update user avatar
+    user.avatar = avatarUrl;
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          avatar: user.avatar
+        }
+      }
+    });
+  } catch (error) {
+    res.status(400).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};
+
 exports.updateProfile = async (req, res) => {
   try {
     const { name, currentPassword, newPassword } = req.body;
@@ -171,7 +237,8 @@ exports.updateProfile = async (req, res) => {
         user: {
           id: user._id,
           email: user.email,
-          name: user.name
+          name: user.name,
+          avatar: user.avatar
         }
       }
     });
@@ -193,7 +260,8 @@ exports.getProfile = async (req, res) => {
         user: {
           id: user._id,
           email: user.email,
-          name: user.name
+          name: user.name,
+          avatar: user.avatar
         }
       }
     });
