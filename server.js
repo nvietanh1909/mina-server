@@ -16,6 +16,7 @@ const chatbotRoutes = require('./routes/chatbotRoutes');
 const otpRoutes = require('./routes/otpRoutes');
 const billScanRoutes = require('./routes/billScanRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -45,6 +46,7 @@ app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/bills', billScanRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use(express.static('public'));
 
 // Default route

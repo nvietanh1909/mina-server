@@ -2,6 +2,7 @@ const Transaction = require('../models/transactionModel');
 const Wallet = require('../models/walletModel');
 const Category = require('../models/categoryModel');
 const mongoose = require('mongoose');
+const { createNotification } = require('./notificationController');
 
 exports.createTransaction = async (req, res) => {
   const session = await mongoose.startSession();
@@ -46,6 +47,66 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
+    // Kiểm tra giới hạn chi tiêu tháng
+    if (type === 'expense' && wallet.monthlyLimit > 0) {
+      // Lấy tổng chi tiêu trong tháng hiện tại
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+
+      const monthlyExpenses = await Transaction.aggregate([
+        {
+          $match: {
+            userId: req.user.id,
+            type: 'expense',
+            date: {
+              $gte: startOfMonth,
+              $lte: endOfMonth
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$amount' }
+          }
+        }
+      ]).session(session);
+
+      const currentMonthlyExpense = monthlyExpenses[0]?.total || 0;
+      const newTotalExpense = currentMonthlyExpense + amount;
+
+      // Tạo thông báo nếu vượt quá giới hạn
+      if (newTotalExpense > wallet.monthlyLimit) {
+        // Tạo thông báo
+        await createNotification(
+          req.user.id,
+          'Cảnh báo vượt giới hạn chi tiêu',
+          `Bạn đã chi tiêu ${newTotalExpense.toLocaleString('vi-VN')} VND trong tháng này, vượt quá giới hạn ${wallet.monthlyLimit.toLocaleString('vi-VN')} VND`,
+          'warning',
+          {
+            currentExpense: newTotalExpense,
+            monthlyLimit: wallet.monthlyLimit,
+            transactionAmount: amount
+          }
+        );
+      }
+      // Tạo thông báo khi gần đến giới hạn (90%)
+      else if (newTotalExpense >= wallet.monthlyLimit * 0.9 && currentMonthlyExpense < wallet.monthlyLimit * 0.9) {
+        await createNotification(
+          req.user.id,
+          'Sắp đạt giới hạn chi tiêu',
+          `Bạn đã chi tiêu ${newTotalExpense.toLocaleString('vi-VN')} VND, đạt ${Math.round(newTotalExpense/wallet.monthlyLimit*100)}% giới hạn tháng`,
+          'info',
+          {
+            currentExpense: newTotalExpense,
+            monthlyLimit: wallet.monthlyLimit,
+            percentage: Math.round(newTotalExpense/wallet.monthlyLimit*100)
+          }
+        );
+      }
+    }
+
     // Tạo giao dịch
     const transaction = await Transaction.create([{
       userId: req.user.id,
@@ -53,7 +114,7 @@ exports.createTransaction = async (req, res) => {
       amount,
       notes: notes || '',
       category,
-      icon: icon || '💰', // Nếu không có icon thì dùng icon mặc định
+      icon: icon || '💰',
       type,
       date: date || new Date()
     }], { session });
