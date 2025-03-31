@@ -77,21 +77,6 @@ class OTPService {
           };
         }
 
-        // Kiểm tra email tồn tại
-        const emailExists = await this.checkEmailExists(email);
-        if (isRegistration && emailExists) {
-          return {
-            success: false,
-            message: 'Email đã được sử dụng. Vui lòng sử dụng email khác.'
-          };
-        }
-        if (!isRegistration && !emailExists) {
-          return {
-            success: false,
-            message: 'Email chưa được đăng ký. Vui lòng đăng ký tài khoản trước.'
-          };
-        }
-
         // Tạo mã OTP
         const otp = this.generateOTP();
   
