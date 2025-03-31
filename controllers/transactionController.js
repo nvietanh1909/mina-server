@@ -298,6 +298,7 @@ exports.deleteTransaction = async (req, res) => {
   session.startTransaction();
 
   try {
+    // Tìm giao dịch
     const transaction = await Transaction.findOne({
       _id: req.params.id,
       userId: req.user.id
@@ -311,13 +312,43 @@ exports.deleteTransaction = async (req, res) => {
       });
     }
 
+    console.log('Found transaction:', {
+      id: transaction._id,
+      userId: transaction.userId
+    });
+
+    // Tìm ví theo userId
+    const wallet = await Wallet.findOne({
+      userId: req.user.id
+    }).session(session);
+
+    console.log('Found wallet:', wallet ? {
+      id: wallet._id,
+      userId: wallet.userId,
+      balance: wallet.balance
+    } : 'No wallet found');
+
+    if (!wallet) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        status: 'error',
+        message: 'Không tìm thấy ví'
+      });
+    }
+
     // Cập nhật số dư ví
     const updateAmount = transaction.type === 'income' ? -transaction.amount : transaction.amount;
-    await Wallet.findByIdAndUpdate(
-      transaction.walletId,
+    const updatedWallet = await Wallet.findByIdAndUpdate(
+      wallet._id,
       { $inc: { balance: updateAmount } },
-      { session }
+      { session, new: true }
     );
+
+    console.log('Updated wallet balance:', {
+      oldBalance: wallet.balance,
+      newBalance: updatedWallet.balance,
+      updateAmount
+    });
 
     // Xóa giao dịch
     await transaction.deleteOne({ session });
@@ -329,6 +360,7 @@ exports.deleteTransaction = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
+    console.error('Error deleting transaction:', error);
     res.status(400).json({
       status: 'error',
       message: error.message
