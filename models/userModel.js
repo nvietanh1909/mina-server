@@ -4,22 +4,22 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: true,
     unique: true,
-    lowercase: true,
     trim: true,
-    validate: {
-      validator: function(v) {
-        return /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(v);
-      },
-      message: 'Invalid email format'
-    }
+    lowercase: true
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters long'],
-    select: false
+    required: true
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
   name: {
     type: String,
@@ -36,6 +36,9 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Index để tối ưu truy vấn
+userSchema.index({ email: 1 });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
