@@ -213,7 +213,7 @@ describe('Category Controller', () => {
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Category not found or cannot be updated'
+        message: 'Category not found'
       });
     });
 
@@ -258,14 +258,12 @@ describe('Category Controller', () => {
       await categoryController.updateCategory(req, res);
 
       expect(Category.findOne).toHaveBeenCalledWith({
-        $or: [
-          { isDefault: true },
-          { userId: 'mockUserId' }
-        ],
-        _id: categoryId
+        _id: categoryId,
+        isDefault: false,
+        userId: 'mockUserId'
       });
       expect(Category.findByIdAndUpdate).toHaveBeenCalledWith(
-        { _id: categoryId, userId: 'mockUserId', isDefault: false },
+        categoryId,
         req.body,
         { new: true, runValidators: true }
       );
@@ -365,17 +363,11 @@ describe('Category Controller', () => {
       await categoryController.deleteCategory(req, res);
 
       expect(Category.findOne).toHaveBeenCalledWith({
-        $or: [
-          { isDefault: true },
-          { userId: 'mockUserId' }
-        ],
-        _id: categoryId
-      });
-      expect(Category.findByIdAndDelete).toHaveBeenCalledWith({
         _id: categoryId,
-        userId: 'mockUserId',
-        isDefault: false
+        isDefault: false,
+        userId: 'mockUserId'
       });
+      expect(Category.findByIdAndDelete).toHaveBeenCalledWith(categoryId);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,

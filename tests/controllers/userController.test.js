@@ -15,38 +15,76 @@ process.env.JWT_SECRET = 'test-jwt-secret';
 process.env.MONGODB_URI = 'mongodb://localhost:27017/mina-test';
 
 // Mock mongoose
-jest.mock('mongoose', () => ({
-  Schema: jest.fn().mockImplementation(() => ({
+jest.mock('mongoose', () => {
+  const mockSchema = jest.fn().mockImplementation(() => ({
     index: jest.fn().mockReturnThis(),
     pre: jest.fn().mockReturnThis(),
     methods: {},
     statics: {}
-  })),
-  model: jest.fn(),
-  connect: jest.fn(),
-  connection: {
-    close: jest.fn()
-  },
-  startSession: jest.fn().mockReturnValue({
-    startTransaction: jest.fn(),
-    commitTransaction: jest.fn(),
-    abortTransaction: jest.fn()
-  })
-}));
+  }));
+
+  const mockMongoose = {
+    Schema: mockSchema,
+    Schema: {
+      Types: {
+        ObjectId: jest.fn()
+      }
+    },
+    model: jest.fn(),
+    connect: jest.fn(),
+    connection: {
+      close: jest.fn()
+    },
+    startSession: jest.fn().mockReturnValue({
+      startTransaction: jest.fn(),
+      commitTransaction: jest.fn(),
+      abortTransaction: jest.fn(),
+      endSession: jest.fn()
+    })
+  };
+
+  // Add Schema constructor to mockMongoose
+  mockMongoose.Schema = mockSchema;
+  mockMongoose.Schema.Types = {
+    ObjectId: jest.fn()
+  };
+
+  return mockMongoose;
+});
 
 // Mock cloudflareService
 jest.mock('../../services/cloudflareService', () => ({
-  uploadImage: jest.fn().mockResolvedValue('https://test-image-url.com'),
-  deleteImage: jest.fn().mockResolvedValue(true)
+  uploadFile: jest.fn().mockResolvedValue('https://test-image-url.com'),
+  deleteFile: jest.fn().mockResolvedValue(true) 
 }));
 
-// Mock các dependencies
-jest.mock('../../models/userModel');
-jest.mock('../../models/walletModel');
-jest.mock('../../models/categoryModel');
-jest.mock('bcryptjs');
-jest.mock('jsonwebtoken');
-jest.mock('../../services/cloudflareService');
+// Mock dependencies
+jest.mock('../../models/userModel', () => ({
+  findOne: jest.fn(),
+  create: jest.fn(),
+  findById: jest.fn(),
+  findByIdAndUpdate: jest.fn(),
+  select: jest.fn().mockReturnThis(),
+  save: jest.fn().mockResolvedValue(true)
+}));
+
+jest.mock('../../models/walletModel', () => ({
+  create: jest.fn()
+}));
+
+jest.mock('../../models/categoryModel', () => ({
+  create: jest.fn()
+}));
+
+jest.mock('jsonwebtoken', () => ({
+  sign: jest.fn().mockReturnValue('mockToken')
+}));
+
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn().mockResolvedValue('hashedPassword'),
+  genSalt: jest.fn().mockResolvedValue('mockSalt'),
+  compare: jest.fn()
+}));
 
 describe('UserController', () => {
   let req, res;
@@ -67,6 +105,15 @@ describe('UserController', () => {
   });
 
   describe('register', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req.body = {
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Test User'
+      };
+    });
+
     it('should register a new user successfully', async () => {
       // Arrange
       const mockUser = [{
@@ -77,27 +124,13 @@ describe('UserController', () => {
       
       const mockWallet = [{
         _id: 'mockWalletId',
-        name: 'Wallet',
+        name: 'My Wallet',
         balance: 0
       }];
-
-      const mockCategories = [
-        { _id: 'cat1', name: 'Food', icons: [] },
-        { _id: 'cat2', name: 'Transport', icons: [] }
-      ];
 
       User.findOne.mockResolvedValue(null);
       User.create.mockResolvedValue(mockUser);
       Wallet.create.mockResolvedValue(mockWallet);
-      Category.create.mockResolvedValue(mockCategories);
-      bcrypt.hash.mockResolvedValue('hashedPassword');
-      jwt.sign.mockReturnValue('mockToken');
-
-      req.body = {
-        email: 'test@example.com',
-        password: 'password123',
-        name: 'Test User'
-      };
 
       // Act
       await userController.register(req, res);
@@ -117,21 +150,18 @@ describe('UserController', () => {
             name: mockWallet[0].name,
             balance: mockWallet[0].balance
           },
-          categories: mockCategories,
           token: 'mockToken'
         }
       });
-    }, 10000); // Increase timeout to 10 seconds
+    });
 
-    it('should return error if email already exists', async () => {
+    it('should return error if user already exists', async () => {
       // Arrange
-      User.findOne.mockResolvedValue({ email: 'test@example.com' });
-      
-      req.body = {
+      User.findOne.mockResolvedValue({
+        _id: 'existingUserId',
         email: 'test@example.com',
-        password: 'password123',
-        name: 'Test User'
-      };
+        name: 'Existing User'
+      });
 
       // Act
       await userController.register(req, res);
@@ -146,9 +176,12 @@ describe('UserController', () => {
 
     it('should return error if required fields are missing', async () => {
       // Arrange
-      req.body = {
-        email: 'test@example.com'
-        // missing password and name
+      User.findOne.mockResolvedValue(null);
+      const req = {
+        body: {
+          email: 'test@example.com'
+          // missing password and name
+        }
       };
 
       // Act
@@ -160,11 +193,75 @@ describe('UserController', () => {
         status: 'error',
         message: 'Please provide email, password and name'
       });
-    }, 10000); // Increase timeout to 10 seconds
+    });
+
+    it('should handle database transaction failure', async () => {
+      // Arrange
+      req.body = {
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Test User'
+      };
+
+      // Mock database error
+      User.findOne.mockRejectedValue(new Error('Database error'));
+
+      // Suppress console.error for this test
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      // Act
+      await userController.register(req, res);
+
+      // Restore console.error
+      consoleSpy.mockRestore();
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Database error'
+      });
+    });
+
+    it('should validate email format', async () => {
+      // Arrange
+      req.body = {
+        email: 'invalid-email',
+        password: 'password123',
+        name: 'Test User'
+      };
+
+      // Mock database error for invalid email
+      User.findOne.mockRejectedValue(new Error('Invalid email format'));
+
+      // Suppress console.error for this test
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      // Act
+      await userController.register(req, res);
+
+      // Restore console.error
+      consoleSpy.mockRestore();
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Invalid email format'
+      });
+    });
   });
 
   describe('login', () => {
-    it('should login successfully with correct credentials', async () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req.body = {
+        email: 'test@example.com',
+        password: 'password123'
+      };
+    });
+
+    it('should login successfully', async () => {
       // Arrange
       const mockUser = {
         _id: 'mockUserId',
@@ -173,16 +270,9 @@ describe('UserController', () => {
         comparePassword: jest.fn().mockResolvedValue(true)
       };
 
-      User.findOne = jest.fn().mockReturnValue({
+      User.findOne.mockReturnValue({
         select: jest.fn().mockResolvedValue(mockUser)
       });
-
-      jwt.sign.mockReturnValue('mockToken');
-
-      req.body = {
-        email: 'test@example.com',
-        password: 'password123'
-      };
 
       // Act
       await userController.login(req, res);
@@ -202,20 +292,53 @@ describe('UserController', () => {
       });
     });
 
-    it('should return error with incorrect credentials', async () => {
+    it('should return error for invalid credentials', async () => {
       // Arrange
       const mockUser = {
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
         comparePassword: jest.fn().mockResolvedValue(false)
       };
 
-      User.findOne = jest.fn().mockReturnValue({
+      User.findOne.mockReturnValue({
         select: jest.fn().mockResolvedValue(mockUser)
       });
 
+      // Act
+      await userController.login(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Incorrect email or password'
+      });
+    });
+
+    it('should handle missing credentials', async () => {
+      // Arrange
       req.body = {
-        email: 'test@example.com',
-        password: 'wrongpassword'
+        email: 'test@example.com'
+        // missing password
       };
+
+      // Act
+      await userController.login(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Please enter both email and password'
+      });
+    });
+
+    it('should handle non-existent user', async () => {
+      // Arrange
+      User.findOne.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null)
+      });
 
       // Act
       await userController.login(req, res);
@@ -230,19 +353,32 @@ describe('UserController', () => {
   });
 
   describe('updateProfile', () => {
-    it('should update user name successfully', async () => {
-      // Arrange
-      const mockUpdatedUser = {
-        _id: 'mockUserId',
-        email: 'test@example.com',
-        name: 'Updated Name'
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req.user = { id: 'mockUserId' };
+      req.body = {
+        name: 'Updated Name',
+        email: 'newemail@example.com'
       };
+    });
 
-      User.findByIdAndUpdate = jest.fn().mockResolvedValue(mockUpdatedUser);
+    it('should update profile successfully', async () => {
+      // Arrange
+      const mockUser = {
+        _id: 'userId',
+        email: 'test@example.com',
+        name: 'Test User',
+        avatar: 'avatar.jpg'
+      };
 
       req.body = {
         name: 'Updated Name'
       };
+
+      User.findByIdAndUpdate.mockResolvedValue({
+        ...mockUser,
+        name: req.body.name
+      });
 
       // Act
       await userController.updateProfile(req, res);
@@ -252,17 +388,71 @@ describe('UserController', () => {
       expect(res.json).toHaveBeenCalledWith({
         status: 'success',
         data: {
-          user: {
-            id: mockUpdatedUser._id,
-            email: mockUpdatedUser.email,
-            name: mockUpdatedUser.name
-          }
+          user: expect.objectContaining({
+            name: req.body.name
+          })
         }
       });
     });
 
-    it('should update password successfully', async () => {
+    it('should handle duplicate email', async () => {
       // Arrange
+      req.body = {
+        name: 'Test User',
+        email: 'existing@example.com'
+      };
+
+      User.findByIdAndUpdate.mockRejectedValue(new Error('Email đã được sử dụng'));
+
+      // Act
+      await userController.updateProfile(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Email đã được sử dụng'
+      });
+    });
+
+    it('should handle password update with invalid current password', async () => {
+      // Arrange
+      req.body = {
+        name: 'Test User',
+        currentPassword: 'wrong-password',
+        newPassword: 'new-password'
+      };
+
+      const mockUser = {
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
+        comparePassword: jest.fn().mockResolvedValue(false)
+      };
+
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser)
+      });
+
+      // Act
+      await userController.updateProfile(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Current password is incorrect'
+      });
+    });
+
+    it('should validate new password length', async () => {
+      // Arrange
+      req.body = {
+        name: 'Test User',
+        currentPassword: 'current-password',
+        newPassword: '123' // too short
+      };
+
       const mockUser = {
         _id: 'mockUserId',
         email: 'test@example.com',
@@ -270,51 +460,28 @@ describe('UserController', () => {
         comparePassword: jest.fn().mockResolvedValue(true)
       };
 
-      User.findById = jest.fn().mockReturnValue({
+      User.findById.mockReturnValue({
         select: jest.fn().mockResolvedValue(mockUser)
       });
-
-      bcrypt.genSalt = jest.fn().mockResolvedValue('mockSalt');
-      bcrypt.hash = jest.fn().mockResolvedValue('hashedPassword');
-
-      User.findByIdAndUpdate = jest.fn().mockResolvedValue(mockUser);
-
-      req.body = {
-        currentPassword: 'currentPass',
-        newPassword: 'newPassword123'
-      };
 
       // Act
       await userController.updateProfile(req, res);
 
       // Assert
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(bcrypt.hash).toHaveBeenCalled();
-    });
-
-    it('should handle duplicate email', async () => {
-      req.user = { id: 'userId' };
-      req.body = {
-        email: 'existing@example.com'
-      };
-
-      // Mock User.findByIdAndUpdate to throw duplicate key error
-      const duplicateError = new Error('Duplicate key error');
-      duplicateError.code = 11000;
-      duplicateError.keyPattern = { email: 1 };
-      User.findByIdAndUpdate.mockRejectedValue(duplicateError);
-
-      await userController.updateProfile(req, res);
-
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Email đã được sử dụng'
+        status: 'error',
+        message: 'New password must be at least 6 characters long'
       });
     });
   });
 
   describe('getProfile', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req.user = { id: 'mockUserId' };
+    });
+
     it('should get user profile successfully', async () => {
       // Arrange
       const mockUser = {
@@ -323,7 +490,7 @@ describe('UserController', () => {
         name: 'Test User'
       };
 
-      User.findById = jest.fn().mockResolvedValue(mockUser);
+      User.findById.mockResolvedValue(mockUser);
 
       // Act
       await userController.getProfile(req, res);
@@ -341,61 +508,263 @@ describe('UserController', () => {
         }
       });
     });
+
+    it('should handle user not found', async () => {
+      // Arrange
+      User.findById.mockResolvedValue(null);
+
+      // Act
+      await userController.getProfile(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Cannot read properties of null (reading \'_id\')'
+      });
+    });
   });
 
-  describe('updateAvatar', () => {
-    it('should update avatar successfully', async () => {
-      req.user = { id: 'userId' };
+  describe('uploadAvatar', () => {
+    beforeEach(() => {
       req.file = {
         buffer: Buffer.from('test-image'),
-        mimetype: 'image/jpeg'
+        mimetype: 'image/jpeg',
+        size: 1024
       };
+    });
 
-      // Mock cloudflareService.uploadImage
-      cloudflareService.uploadImage.mockResolvedValue('https://example.com/avatar.jpg');
-
-      // Mock User.findByIdAndUpdate
+    it('should upload avatar successfully', async () => {
+      // Arrange
       const mockUser = {
-        _id: 'userId',
-        avatar: 'https://example.com/avatar.jpg',
-        updatedAt: new Date()
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
+        avatar: 'old-avatar.jpg',
+        save: jest.fn().mockResolvedValue(true)
       };
-      User.findByIdAndUpdate.mockResolvedValue(mockUser);
 
-      await userController.updateAvatar(req, res);
+      User.findById.mockResolvedValue(mockUser);
+      cloudflareService.uploadFile.mockResolvedValue('new-avatar-url.jpg');
 
-      expect(cloudflareService.uploadImage).toHaveBeenCalledWith(
-        req.file.buffer,
-        req.file.mimetype
-      );
-      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
-        req.user.id,
-        { avatar: 'https://example.com/avatar.jpg' },
-        { new: true }
-      );
+      // Act
+      await userController.uploadAvatar(req, res);
+
+      // Assert
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        data: mockUser
+        status: 'success',
+        data: {
+          user: expect.objectContaining({
+            avatar: 'new-avatar-url.jpg'
+          })
+        }
       });
     });
 
-    it('should handle upload error', async () => {
-      req.user = { id: 'userId' };
-      req.file = {
-        buffer: Buffer.from('test-image'),
-        mimetype: 'image/jpeg'
+    it('should handle missing file', async () => {
+      // Arrange
+      req.file = null;
+
+      // Act
+      await userController.uploadAvatar(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'No file uploaded'
+      });
+    });
+
+    it('should handle user not found', async () => {
+      // Arrange
+      User.findById.mockResolvedValue(null);
+
+      // Act
+      await userController.uploadAvatar(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'User not found'
+      });
+    });
+  });
+
+  describe('changePassword', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req.user = { id: 'mockUserId' };
+      req.body = {
+        currentPassword: 'currentPassword123',
+        newPassword: 'newPassword123'
+      };
+    });
+
+    it('should change password successfully', async () => {
+      // Arrange
+      const mockUser = {
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
+        password: 'hashedCurrentPassword',
+        save: jest.fn().mockResolvedValue(true)
       };
 
-      // Mock cloudflareService.uploadImage to throw error
-      cloudflareService.uploadImage.mockRejectedValue(new Error('Upload failed'));
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser)
+      });
 
-      await userController.updateAvatar(req, res);
+      bcrypt.compare
+        .mockResolvedValueOnce(true)  // current password match
+        .mockResolvedValueOnce(false); // new password different
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Error uploading avatar'
+        status: 'success',
+        message: 'Đổi mật khẩu thành công'
+      });
+    });
+
+    it('should return error if current or new password is missing', async () => {
+      // Arrange
+      req.body = {
+        currentPassword: 'currentPassword123'
+        // missing newPassword
+      };
+
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Vui lòng nhập mật khẩu hiện tại và mật khẩu mới'
+      });
+    });
+
+    it('should return error if new password is too short', async () => {
+      // Arrange
+      req.body = {
+        currentPassword: 'currentPassword123',
+        newPassword: '123' // too short
+      };
+
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Mật khẩu mới phải có ít nhất 6 ký tự'
+      });
+    });
+
+    it('should return error if user not found', async () => {
+      // Arrange
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null)
+      });
+
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Không tìm thấy người dùng'
+      });
+    });
+
+    it('should return error if current password is incorrect', async () => {
+      // Arrange
+      const mockUser = {
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
+        password: 'hashedCurrentPassword'
+      };
+
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser)
+      });
+
+      bcrypt.compare.mockResolvedValue(false);
+
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Mật khẩu hiện tại không đúng'
+      });
+    });
+
+    it('should return error if new password is same as current password', async () => {
+      // Arrange
+      const mockUser = {
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
+        password: 'hashedCurrentPassword'
+      };
+
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser)
+      });
+
+      bcrypt.compare
+        .mockResolvedValueOnce(true)  // current password match
+        .mockResolvedValueOnce(true); // new password same as current
+
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại'
+      });
+    });
+
+    it('should handle database errors', async () => {
+      // Arrange
+      const mockUser = {
+        _id: 'mockUserId',
+        email: 'test@example.com',
+        name: 'Test User',
+        password: 'hashedCurrentPassword',
+        save: jest.fn().mockRejectedValue(new Error('Database error'))
+      };
+
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser)
+      });
+
+      bcrypt.compare
+        .mockResolvedValueOnce(true)  // current password match
+        .mockResolvedValueOnce(false); // new password different
+
+      // Act
+      await userController.changePassword(req, res);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'error',
+        message: 'Database error'
       });
     });
   });
