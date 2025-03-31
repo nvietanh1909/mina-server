@@ -1,7 +1,7 @@
+const mongoose = require('mongoose');
+const transactionController = require('../../controllers/transactionController');
 const Transaction = require('../../models/transactionModel');
 const Wallet = require('../../models/walletModel');
-const transactionController = require('../../controllers/transactionController');
-const mongoose = require('mongoose');
 
 // Mock mongoose
 jest.mock('mongoose', () => {
@@ -12,15 +12,22 @@ jest.mock('mongoose', () => {
         index: jest.fn()
       };
     },
-    model: jest.fn(),
-    startSession: jest.fn(),
     Schema: {
       Types: {
         ObjectId: String
       }
-    }
+    },
+    model: jest.fn(),
+    connect: jest.fn(),
+    connection: {
+      close: jest.fn()
+    },
+    startSession: jest.fn().mockReturnValue({
+      startTransaction: jest.fn(),
+      commitTransaction: jest.fn(),
+      abortTransaction: jest.fn()
+    })
   };
-  mockMongoose.Schema.Types.ObjectId = String;
   return mockMongoose;
 });
 

@@ -2,7 +2,14 @@ const categoryController = require('../../controllers/categoryController');
 const Category = require('../../models/categoryModel');
 
 // Mock dependencies
-jest.mock('../../models/categoryModel');
+jest.mock('../../models/categoryModel', () => ({
+  create: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  findById: jest.fn(),
+  findByIdAndUpdate: jest.fn(),
+  findByIdAndDelete: jest.fn()
+}));
 
 describe('Category Controller', () => {
   let req, res;
@@ -11,7 +18,8 @@ describe('Category Controller', () => {
     req = {
       body: {},
       params: {},
-      query: {}
+      query: {},
+      user: { id: 'mockUserId' }
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -31,26 +39,27 @@ describe('Category Controller', () => {
       req.body = categoryData;
 
       // Mock Category.create to return new category
-      Category.create.mockResolvedValue({
+      const mockCategory = {
         _id: 'categoryId',
         ...categoryData,
+        userId: 'mockUserId',
+        isDefault: false,
         createdAt: new Date(),
         updatedAt: new Date()
-      });
+      };
+      Category.create.mockResolvedValue(mockCategory);
 
       await categoryController.createCategory(req, res);
 
-      expect(Category.create).toHaveBeenCalledWith(categoryData);
+      expect(Category.create).toHaveBeenCalledWith({
+        ...categoryData,
+        userId: 'mockUserId',
+        isDefault: false
+      });
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        data: expect.objectContaining({
-          _id: 'categoryId',
-          name: categoryData.name,
-          description: categoryData.description,
-          icon: categoryData.icon,
-          color: categoryData.color
-        })
+        data: mockCategory
       });
     });
 
@@ -77,17 +86,17 @@ describe('Category Controller', () => {
       };
 
       // Mock Category.create to throw duplicate key error
-      Category.create.mockRejectedValue({
-        code: 11000,
-        keyPattern: { name: 1 }
-      });
+      const duplicateError = new Error('Duplicate key error');
+      duplicateError.code = 11000;
+      duplicateError.keyPattern = { name: 1 };
+      Category.create.mockRejectedValue(duplicateError);
 
       await categoryController.createCategory(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Category with this name already exists'
+        message: 'Đã tồn tại category với tên này'
       });
     });
 
@@ -98,7 +107,8 @@ describe('Category Controller', () => {
       };
 
       // Mock Category.create to throw error
-      Category.create.mockRejectedValue(new Error('Database error'));
+      const dbError = new Error('Database error');
+      Category.create.mockRejectedValue(dbError);
 
       await categoryController.createCategory(req, res);
 
@@ -117,12 +127,14 @@ describe('Category Controller', () => {
         {
           _id: 'categoryId1',
           name: 'Category 1',
-          description: 'Description 1'
+          description: 'Description 1',
+          userId: 'mockUserId'
         },
         {
           _id: 'categoryId2',
           name: 'Category 2',
-          description: 'Description 2'
+          description: 'Description 2',
+          userId: 'mockUserId'
         }
       ];
 
@@ -131,7 +143,12 @@ describe('Category Controller', () => {
 
       await categoryController.getCategories(req, res);
 
-      expect(Category.find).toHaveBeenCalled();
+      expect(Category.find).toHaveBeenCalledWith({
+        $or: [
+          { isDefault: true },
+          { userId: 'mockUserId' }
+        ]
+      });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -162,15 +179,22 @@ describe('Category Controller', () => {
       const category = {
         _id: categoryId,
         name: 'Test Category',
-        description: 'Test Description'
+        description: 'Test Description',
+        userId: 'mockUserId'
       };
 
-      // Mock Category.findById to return category
-      Category.findById.mockResolvedValue(category);
+      // Mock Category.findOne to return category
+      Category.findOne.mockResolvedValue(category);
 
       await categoryController.getCategoryById(req, res);
 
-      expect(Category.findById).toHaveBeenCalledWith(categoryId);
+      expect(Category.findOne).toHaveBeenCalledWith({
+        $or: [
+          { isDefault: true },
+          { userId: 'mockUserId' }
+        ],
+        _id: categoryId
+      });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -181,23 +205,23 @@ describe('Category Controller', () => {
     test('should handle category not found', async () => {
       req.params.id = 'nonExistentId';
 
-      // Mock Category.findById to return null
-      Category.findById.mockResolvedValue(null);
+      // Mock Category.findOne to return null
+      Category.findOne.mockResolvedValue(null);
 
       await categoryController.getCategoryById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Category not found'
+        message: 'Category not found or cannot be updated'
       });
     });
 
     test('should handle server error', async () => {
       req.params.id = 'categoryId';
 
-      // Mock Category.findById to throw error
-      Category.findById.mockRejectedValue(new Error('Database error'));
+      // Mock Category.findOne to throw error
+      Category.findOne.mockRejectedValue(new Error('Database error'));
 
       await categoryController.getCategoryById(req, res);
 
@@ -222,16 +246,26 @@ describe('Category Controller', () => {
       const updatedCategory = {
         _id: categoryId,
         ...req.body,
+        userId: 'mockUserId',
+        isDefault: false,
         updatedAt: new Date()
       };
 
-      // Mock Category.findByIdAndUpdate to return updated category
+      // Mock Category.findOne and findByIdAndUpdate
+      Category.findOne.mockResolvedValue(updatedCategory);
       Category.findByIdAndUpdate.mockResolvedValue(updatedCategory);
 
       await categoryController.updateCategory(req, res);
 
+      expect(Category.findOne).toHaveBeenCalledWith({
+        $or: [
+          { isDefault: true },
+          { userId: 'mockUserId' }
+        ],
+        _id: categoryId
+      });
       expect(Category.findByIdAndUpdate).toHaveBeenCalledWith(
-        categoryId,
+        { _id: categoryId, userId: 'mockUserId', isDefault: false },
         req.body,
         { new: true, runValidators: true }
       );
@@ -248,15 +282,15 @@ describe('Category Controller', () => {
         name: 'Updated Category'
       };
 
-      // Mock Category.findByIdAndUpdate to return null
-      Category.findByIdAndUpdate.mockResolvedValue(null);
+      // Mock Category.findOne to return null
+      Category.findOne.mockResolvedValue(null);
 
       await categoryController.updateCategory(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Category not found'
+        message: 'Category not found or cannot be updated'
       });
     });
 
@@ -265,6 +299,14 @@ describe('Category Controller', () => {
       req.body = {
         name: 'Existing Category'
       };
+
+      // Mock Category.findOne to return category
+      Category.findOne.mockResolvedValue({
+        _id: 'categoryId',
+        name: 'Existing Category',
+        userId: 'mockUserId',
+        isDefault: false
+      });
 
       // Mock Category.findByIdAndUpdate to throw duplicate key error
       Category.findByIdAndUpdate.mockRejectedValue({
@@ -277,7 +319,7 @@ describe('Category Controller', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Category with this name already exists'
+        message: 'Đã tồn tại category với tên này'
       });
     });
 
@@ -287,8 +329,8 @@ describe('Category Controller', () => {
         name: 'Updated Category'
       };
 
-      // Mock Category.findByIdAndUpdate to throw error
-      Category.findByIdAndUpdate.mockRejectedValue(new Error('Database error'));
+      // Mock Category.findOne to throw error
+      Category.findOne.mockRejectedValue(new Error('Database error'));
 
       await categoryController.updateCategory(req, res);
 
@@ -306,15 +348,34 @@ describe('Category Controller', () => {
       const categoryId = 'categoryId';
       req.params.id = categoryId;
 
-      // Mock Category.findByIdAndDelete to return deleted category
+      // Mock Category.findOne and findByIdAndDelete
+      Category.findOne.mockResolvedValue({
+        _id: categoryId,
+        name: 'Deleted Category',
+        userId: 'mockUserId',
+        isDefault: false
+      });
       Category.findByIdAndDelete.mockResolvedValue({
         _id: categoryId,
-        name: 'Deleted Category'
+        name: 'Deleted Category',
+        userId: 'mockUserId',
+        isDefault: false
       });
 
       await categoryController.deleteCategory(req, res);
 
-      expect(Category.findByIdAndDelete).toHaveBeenCalledWith(categoryId);
+      expect(Category.findOne).toHaveBeenCalledWith({
+        $or: [
+          { isDefault: true },
+          { userId: 'mockUserId' }
+        ],
+        _id: categoryId
+      });
+      expect(Category.findByIdAndDelete).toHaveBeenCalledWith({
+        _id: categoryId,
+        userId: 'mockUserId',
+        isDefault: false
+      });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -325,23 +386,23 @@ describe('Category Controller', () => {
     test('should handle category not found', async () => {
       req.params.id = 'nonExistentId';
 
-      // Mock Category.findByIdAndDelete to return null
-      Category.findByIdAndDelete.mockResolvedValue(null);
+      // Mock Category.findOne to return null
+      Category.findOne.mockResolvedValue(null);
 
       await categoryController.deleteCategory(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Category not found'
+        message: 'Category not found or cannot be deleted'
       });
     });
 
     test('should handle server error', async () => {
       req.params.id = 'categoryId';
 
-      // Mock Category.findByIdAndDelete to throw error
-      Category.findByIdAndDelete.mockRejectedValue(new Error('Database error'));
+      // Mock Category.findOne to throw error
+      Category.findOne.mockRejectedValue(new Error('Database error'));
 
       await categoryController.deleteCategory(req, res);
 
