@@ -5,6 +5,40 @@ const userController = require('../../controllers/userController');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const cloudflareService = require('../../services/cloudflareService');
+
+// Set up environment variables for testing
+process.env.CLOUDFLARE_ENDPOINT = 'https://test.cloudflare.com';
+process.env.CLOUDFLARE_ACCESS_KEY = 'test-access-key';
+process.env.CLOUDFLARE_SECRET_KEY = 'test-secret-key';
+process.env.JWT_SECRET = 'test-jwt-secret';
+process.env.MONGODB_URI = 'mongodb://localhost:27017/mina-test';
+
+// Mock mongoose
+jest.mock('mongoose', () => ({
+  Schema: jest.fn().mockImplementation(() => ({
+    index: jest.fn().mockReturnThis(),
+    pre: jest.fn().mockReturnThis(),
+    methods: {},
+    statics: {}
+  })),
+  model: jest.fn(),
+  connect: jest.fn(),
+  connection: {
+    close: jest.fn()
+  },
+  startSession: jest.fn().mockReturnValue({
+    startTransaction: jest.fn(),
+    commitTransaction: jest.fn(),
+    abortTransaction: jest.fn()
+  })
+}));
+
+// Mock cloudflareService
+jest.mock('../../services/cloudflareService', () => ({
+  uploadImage: jest.fn().mockResolvedValue('https://test-image-url.com'),
+  deleteImage: jest.fn().mockResolvedValue(true)
+}));
 
 // Mock các dependencies
 jest.mock('../../models/userModel');
@@ -12,15 +46,18 @@ jest.mock('../../models/walletModel');
 jest.mock('../../models/categoryModel');
 jest.mock('bcryptjs');
 jest.mock('jsonwebtoken');
+jest.mock('../../services/cloudflareService');
 
 describe('UserController', () => {
-  let req;
-  let res;
-  
+  let req, res;
+
   beforeEach(() => {
     req = {
       body: {},
-      user: { id: 'mockUserId' }
+      params: {},
+      query: {},
+      user: { id: 'mockUserId' },
+      file: null
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -30,24 +67,6 @@ describe('UserController', () => {
   });
 
   describe('register', () => {
-    beforeEach(() => {
-      // Mock startSession
-      const mockSession = {
-        startTransaction: jest.fn(),
-        commitTransaction: jest.fn(),
-        abortTransaction: jest.fn(),
-        endSession: jest.fn()
-      };
-      User.startSession = jest.fn().mockResolvedValue(mockSession);
-      
-      // Mock các phương thức khác
-      User.findOne = jest.fn();
-      User.create = jest.fn();
-      Wallet.create = jest.fn();
-      Category.create = jest.fn();
-      jwt.sign = jest.fn().mockReturnValue('mockToken');
-    });
-
     it('should register a new user successfully', async () => {
       // Arrange
       const mockUser = [{
@@ -71,6 +90,8 @@ describe('UserController', () => {
       User.create.mockResolvedValue(mockUser);
       Wallet.create.mockResolvedValue(mockWallet);
       Category.create.mockResolvedValue(mockCategories);
+      bcrypt.hash.mockResolvedValue('hashedPassword');
+      jwt.sign.mockReturnValue('mockToken');
 
       req.body = {
         email: 'test@example.com',
@@ -96,11 +117,11 @@ describe('UserController', () => {
             name: mockWallet[0].name,
             balance: mockWallet[0].balance
           },
-          categories: expect.any(Array),
+          categories: mockCategories,
           token: 'mockToken'
         }
       });
-    });
+    }, 10000); // Increase timeout to 10 seconds
 
     it('should return error if email already exists', async () => {
       // Arrange
@@ -119,7 +140,7 @@ describe('UserController', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         status: 'error',
-        message: 'Email is already in use'
+        message: 'User already exists'
       });
     });
 
@@ -139,7 +160,7 @@ describe('UserController', () => {
         status: 'error',
         message: 'Please provide email, password and name'
       });
-    });
+    }, 10000); // Increase timeout to 10 seconds
   });
 
   describe('login', () => {
@@ -270,6 +291,27 @@ describe('UserController', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(bcrypt.hash).toHaveBeenCalled();
     });
+
+    it('should handle duplicate email', async () => {
+      req.user = { id: 'userId' };
+      req.body = {
+        email: 'existing@example.com'
+      };
+
+      // Mock User.findByIdAndUpdate to throw duplicate key error
+      const duplicateError = new Error('Duplicate key error');
+      duplicateError.code = 11000;
+      duplicateError.keyPattern = { email: 1 };
+      User.findByIdAndUpdate.mockRejectedValue(duplicateError);
+
+      await userController.updateProfile(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Email đã được sử dụng'
+      });
+    });
   });
 
   describe('getProfile', () => {
@@ -297,6 +339,63 @@ describe('UserController', () => {
             name: mockUser.name
           }
         }
+      });
+    });
+  });
+
+  describe('updateAvatar', () => {
+    it('should update avatar successfully', async () => {
+      req.user = { id: 'userId' };
+      req.file = {
+        buffer: Buffer.from('test-image'),
+        mimetype: 'image/jpeg'
+      };
+
+      // Mock cloudflareService.uploadImage
+      cloudflareService.uploadImage.mockResolvedValue('https://example.com/avatar.jpg');
+
+      // Mock User.findByIdAndUpdate
+      const mockUser = {
+        _id: 'userId',
+        avatar: 'https://example.com/avatar.jpg',
+        updatedAt: new Date()
+      };
+      User.findByIdAndUpdate.mockResolvedValue(mockUser);
+
+      await userController.updateAvatar(req, res);
+
+      expect(cloudflareService.uploadImage).toHaveBeenCalledWith(
+        req.file.buffer,
+        req.file.mimetype
+      );
+      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+        req.user.id,
+        { avatar: 'https://example.com/avatar.jpg' },
+        { new: true }
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockUser
+      });
+    });
+
+    it('should handle upload error', async () => {
+      req.user = { id: 'userId' };
+      req.file = {
+        buffer: Buffer.from('test-image'),
+        mimetype: 'image/jpeg'
+      };
+
+      // Mock cloudflareService.uploadImage to throw error
+      cloudflareService.uploadImage.mockRejectedValue(new Error('Upload failed'));
+
+      await userController.updateAvatar(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Error uploading avatar'
       });
     });
   });

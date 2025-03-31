@@ -22,22 +22,6 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    // Kiểm tra category tồn tại
-    const categoryInfo = await Category.findOne({ 
-      $or: [
-        { name: category, userId: req.user.id },
-        { name: category, isDefault: true }
-      ]
-    }).session(session);
-
-    if (!categoryInfo) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        status: 'error',
-        message: 'Không tìm thấy danh mục'
-      });
-    }
-
     // Kiểm tra số dư khi chi tiêu
     if (type === 'expense' && wallet.balance < amount) {
       await session.abortTransaction();
