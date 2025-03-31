@@ -25,6 +25,14 @@ function getYesterdayDate() {
   return yesterday.toISOString().split('T')[0];
 }
 
+// Helper function để chuyển đổi định dạng ngày từ YYYY-MM-DD sang DD MMM YYYY
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${date.getDate().toString().padStart(2, '0')} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 exports.analyzeBill = async (req, res) => {
   try {
     const { text, userId } = req.body;
@@ -58,11 +66,21 @@ exports.analyzeBill = async (req, res) => {
           content: `Bạn là một hệ thống phân tích hóa đơn thông minh, có khả năng đọc hiểu hóa đơn, đa ngôn ngữ và chuyển đổi tiền tệ toàn bộ sang Việt Nam.
 
             Nhiệm vụ của bạn là:
-            1. Phân tích và làm sạch text đầu vào và nhận biết tổng tiền nằm ở đâu do detect có thể bị lỗi vài chỗ
-            2. Nhận diện loại tiền tệ và quy đổi sang VND theo tỷ giá cập nhật tại thời điểm hiện tại
-            3. Phân loại hóa đơn vào các danh mục dựa vào text nhé
-            4. Tạo ghi chú ngắn gọn mô tả nội dung chính của hóa đơn
-            5. Xử lý ngày tháng:
+            1. Phân tích và làm sạch text đầu vào để tìm số tiền:
+               - Nếu text có "X ngan", "X ngàn" => X * 1000 VND
+               - Nếu text có "X trieu", "X triệu" => X * 1000000 VND
+               - Nếu text có "X k" => X * 1000 VND
+               - Nếu text có "X đ", "X d", "X vnd", "X VND" => X VND
+               - Nếu text có số tiền bằng tiền nước ngoài, quy đổi sang VND theo tỷ giá hiện tại
+               VD: 
+               - "100 ngan" => 100000
+               - "1 trieu" => 1000000
+               - "50k" => 50000
+               - "15 usd" => 15 * tỷ giá USD hiện tại
+
+            2. Phân loại hóa đơn vào các danh mục dựa vào text
+            3. Tạo ghi chú ngắn gọn mô tả nội dung chính của hóa đơn
+            4. Xử lý ngày tháng:
                - Nếu text có "hom nay" hoặc "ngày này" => ${today}
                - Nếu text có "ngay mai" hoặc "mai" => ${tomorrow}
                - Nếu text có "hom qua" => ${yesterday}
@@ -74,7 +92,7 @@ exports.analyzeBill = async (req, res) => {
 
             Trả về kết quả theo định dạng JSON:
             {
-              "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách, quy đổi theo tỷ giá hiện tại là ngày ${today}),
+              "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách),
               "date": "YYYY-MM-DD" hoặc null nếu không tìm thấy ngày trong hóa đơn,
               "category": "PHẢI là một trong các category trong danh sách trên",
               "notes": "ghi chú ngắn gọn mô tả nội dung hóa đơn (string) (3-5 từ bằng tiếng anh) "
@@ -95,6 +113,9 @@ exports.analyzeBill = async (req, res) => {
     if (!analysisResult.date) {
       analysisResult.date = getCurrentDate();
     }
+
+    // Chuyển đổi định dạng ngày sang DD MMM YYYY
+    const formattedDate = formatDate(analysisResult.date);
 
     // Kiểm tra category tồn tại
     const categoryInfo = await Category.findOne({ 
@@ -137,7 +158,7 @@ exports.analyzeBill = async (req, res) => {
             notes: analysisResult.notes,
             type: 'expense',
             category: analysisResult.category,
-            date: analysisResult.date
+            date: formattedDate
           }
         }
       });
@@ -176,6 +197,7 @@ exports.analyzeBill = async (req, res) => {
       success: true,
       data: {
         ...analysisResult,
+        date: formattedDate,
         icon,
         type: 'expense'
       }

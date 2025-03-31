@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const OTP = require('../models/otpModel');
+const User = require('../models/userModel');
 
 class OTPService {
     constructor() {
@@ -23,6 +24,17 @@ class OTPService {
     validateEmail(email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       return emailRegex.test(email);
+    }
+
+    // Kiểm tra email tồn tại
+    async checkEmailExists(email) {
+      try {
+        const user = await User.findOne({ email: email.toLowerCase() });
+        return user !== null;
+      } catch (error) {
+        console.error('Lỗi khi kiểm tra email:', error);
+        return false;
+      }
     }
   
     // Lưu OTP vào database
@@ -55,13 +67,28 @@ class OTPService {
     }
   
     // Gửi OTP qua email
-    async sendOTPByEmail(email) {
+    async sendOTPByEmail(email, isRegistration = false) {
       try {
         // Validate email
         if (!this.validateEmail(email)) {
           return {
             success: false,
             message: 'Email không hợp lệ'
+          };
+        }
+
+        // Kiểm tra email tồn tại
+        const emailExists = await this.checkEmailExists(email);
+        if (isRegistration && emailExists) {
+          return {
+            success: false,
+            message: 'Email đã được sử dụng. Vui lòng sử dụng email khác.'
+          };
+        }
+        if (!isRegistration && !emailExists) {
+          return {
+            success: false,
+            message: 'Email chưa được đăng ký. Vui lòng đăng ký tài khoản trước.'
           };
         }
 
@@ -84,21 +111,21 @@ class OTPService {
             address: process.env.EMAIL_USER
           },
           to: email,
-          subject: 'Mã OTP Xác Thực',
+          subject: isRegistration ? 'Mã OTP Đăng Ký Tài Khoản' : 'Mã OTP Xác Thực',
           html: `
            <div style="background-color: #f5f5f5; padding: 40px 20px;">
                 <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 40px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
                     <!-- Header -->
                     <div style="text-align: center; margin-bottom: 30px;">
                         <h1 style="color: #2c3e50; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 24px; font-weight: 600;">
-                            Xác Thực Tài Khoản
+                            ${isRegistration ? 'Đăng Ký Tài Khoản' : 'Xác Thực Tài Khoản'}
                         </h1>
                     </div>
 
                     <!-- Main Content -->
                     <div style="text-align: center;">
                         <p style="color: #4a5568; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                            Vui lòng sử dụng mã OTP bên dưới để xác thực tài khoản của bạn
+                            Vui lòng sử dụng mã OTP bên dưới để ${isRegistration ? 'đăng ký' : 'xác thực'} tài khoản của bạn
                         </p>
                         
                         <!-- OTP Box -->
