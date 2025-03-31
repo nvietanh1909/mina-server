@@ -138,7 +138,6 @@ const categoryController = {
 
   deleteCategory: async (req, res) => {
     try {
-      // Chỉ cho phép xóa category không phải mặc định
       const category = await Category.findOne({
         _id: req.params.id,
         userId: req.user.id,

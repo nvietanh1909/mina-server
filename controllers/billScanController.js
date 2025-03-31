@@ -63,40 +63,39 @@ exports.analyzeBill = async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `Bạn là một hệ thống phân tích hóa đơn thông minh, có khả năng đọc hiểu hóa đơn, đa ngôn ngữ và chuyển đổi tiền tệ toàn bộ sang Việt Nam.
+          content: `You are an intelligent bill analysis system that can understand receipts in multiple languages and convert all currencies to VND.
 
-            Nhiệm vụ của bạn là:
-            1. Phân tích và làm sạch text đầu vào để tìm số tiền:
-               - Nếu text có "X ngan", "X ngàn" => X * 1000 VND
-               - Nếu text có "X trieu", "X triệu" => X * 1000000 VND
-               - Nếu text có "X k" => X * 1000 VND
-               - Nếu text có "X đ", "X d", "X vnd", "X VND" => X VND
-               - Nếu text có số tiền bằng tiền nước ngoài, quy đổi sang VND theo tỷ giá hiện tại
-               VD: 
-               - "100 ngan" => 100000
-               - "1 trieu" => 1000000
-               - "50k" => 50000
-               - "15 usd" => 15 * tỷ giá USD hiện tại
+Your tasks:
+1. Analyze and clean input text to find amounts:
+   - "X ngan", "X ngàn" => X * 1000 VND
+   - "X trieu", "X triệu" => X * 1000000 VND
+   - "X k" => X * 1000 VND
+   - "X đ", "X d", "X vnd", "X VND" => X VND
+   - Foreign currency => Convert to VND at current rate
 
-            2. Phân loại hóa đơn vào các danh mục dựa vào text
-            3. Tạo ghi chú ngắn gọn mô tả nội dung chính của hóa đơn
-            4. Xử lý ngày tháng:
-               - Nếu text có "hom nay" hoặc "ngày này" => ${today}
-               - Nếu text có "ngay mai" hoặc "mai" => ${tomorrow}
-               - Nếu text có "hom qua" => ${yesterday}
-               - Nếu text có ngày cụ thể (VD: 25/03/2024) => chuyển về định dạng YYYY-MM-DD
-               - Nếu không có thông tin ngày => trả về null
+2. Create a suitable 1-2 word category name in English based on the context (max 2 words)
+3. Select an appropriate emoji icon for the category (single emoji)
+4. Create a short note describing the bill content
+5. Handle dates:
+   - "hom nay" or "ngày này" => ${today}
+   - "ngay mai" or "mai" => ${tomorrow}
+   - "hom qua" => ${yesterday}
+   - Specific dates (e.g. 25/03/2024) => YYYY-MM-DD format
+   - No date info => null
 
-            Danh sách category hiện có:
-            ${categoryNames.join(', ')}
+6. Determine transaction type:
+   - If text contains keywords like "salary", "lương", "thu nhập", "bonus", "thưởng", "investment", "đầu tư" => type: "income"
+   - Otherwise => type: "expense"
 
-            Trả về kết quả theo định dạng JSON:
-            {
-              "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách),
-              "date": "YYYY-MM-DD" hoặc null nếu không tìm thấy ngày trong hóa đơn,
-              "category": "PHẢI là một trong các category trong danh sách trên",
-              "notes": "ghi chú ngắn gọn mô tả nội dung hóa đơn (string) (3-5 từ bằng tiếng anh) "
-            }`
+Return JSON format:
+{
+  "amount": number in VND (no separators),
+  "date": "YYYY-MM-DD" or null,
+  "category": "1-2 word English category name",
+  "notes": "3-5 word English description",
+  "icon": "single emoji representing the category",
+  "type": "expense" or "income"
+}`
         },
         {
           role: "user",
@@ -117,89 +116,11 @@ exports.analyzeBill = async (req, res) => {
     // Chuyển đổi định dạng ngày sang DD MMM YYYY
     const formattedDate = formatDate(analysisResult.date);
 
-    // Kiểm tra category tồn tại
-    const categoryInfo = await Category.findOne({ 
-      $or: [
-        { name: analysisResult.category, userId },
-        { name: analysisResult.category, isDefault: true }
-      ]
-    });
-
-    if (!categoryInfo) {
-      // Lấy danh sách category hiện có cho loại giao dịch này
-      const existingCategories = await Category.find({
-        $or: [
-          { userId },
-          { isDefault: true }
-        ]
-      });
-
-      // Lọc category phù hợp với loại giao dịch (expense)
-      const suggestedCategories = existingCategories
-        .filter(cat => {
-          // Các category thường dùng cho expense
-          const expenseKeywords = ['food', 'ăn', 'transport', 'đi lại', 'shopping', 'mua sắm', 'bill', 'hóa đơn'];
-          const name = cat.name.toLowerCase();
-          return expenseKeywords.some(keyword => name.includes(keyword.toLowerCase()));
-        })
-        .map(cat => ({
-          name: cat.name,
-          icons: cat.icons.map(icon => icon.iconPath)
-        }));
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          needNewCategory: true,
-          message: `Danh mục "${analysisResult.category}" chưa tồn tại. Bạn có muốn tạo danh mục mới không?\n\nCác danh mục gợi ý cho giao dịch chi tiêu:\n${suggestedCategories.map(cat => cat.name).join('\n')}\n\nHoặc bạn có thể tạo danh mục mới với tên "${analysisResult.category}"`,
-          suggestedCategories,
-          transactionData: {
-            amount: analysisResult.amount,
-            notes: analysisResult.notes,
-            type: 'expense',
-            category: analysisResult.category,
-            date: formattedDate
-          }
-        }
-      });
-    }
-
-    // Lấy danh sách icons từ category
-    const availableIcons = categoryInfo.icons.map(icon => icon.iconPath);
-    
-    // Gọi OpenAI để chọn icon phù hợp
-    const iconCompletion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: `Bạn là một trợ lý chọn icon thông minh. Dựa vào nội dung giao dịch, hãy chọn icon phù hợp nhất từ danh sách có sẵn.
-          
-          Danh sách icon có sẵn: ${availableIcons.join(', ')}
-          
-          CHỈ trả về một icon duy nhất từ danh sách trên, KHÔNG kèm theo bất kỳ text nào khác.`
-        },
-        {
-          role: "user",
-          content: analysisResult.notes
-        }
-      ],
-      max_tokens: 10,
-      temperature: 0.3
-    });
-
-    const selectedIcon = iconCompletion.choices[0].message.content.trim();
-    
-    // Kiểm tra xem icon được chọn có trong danh sách không
-    const icon = availableIcons.includes(selectedIcon) ? selectedIcon : availableIcons[0];
-
     res.status(200).json({
       success: true,
       data: {
         ...analysisResult,
-        date: formattedDate,
-        icon,
-        type: 'expense'
+        date: formattedDate
       }
     });
 
