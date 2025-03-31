@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const OTP = require('../models/otpModel');
 
 class OTPService {
     constructor() {
@@ -11,35 +12,40 @@ class OTPService {
           pass: process.env.EMAIL_PASS
         }
       });
-
-      // Lưu trữ OTP trong bộ nhớ
-      this.otpStorage = new Map();
     }
   
     // Tạo mã OTP 6 chữ số
-      generateOTP() {
-        return crypto.randomInt(100000, 999999);  
-      }
+    generateOTP() {
+      return crypto.randomInt(100000, 999999).toString();
+    }
+
+    // Validate email format
+    validateEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    }
   
-    // Lưu OTP vào bộ nhớ thay vì Firebase
+    // Lưu OTP vào database
     async saveOTP(email, otp) {
       try {
-        const currentTime = new Date();
-        const expiryTime = new Date(currentTime.getTime() + 10 * 60 * 1000); // 10 phút
+        // Xóa các OTP cũ của email này
+        await OTP.deleteMany({ email });
         
-        const otpData = {
-          otp: otp,
-          createdAt: currentTime,
-          expiresAt: expiryTime
-        };
+        // Tạo OTP mới
+        const otpData = new OTP({
+          email,
+          otp,
+          createdAt: new Date()
+        });
         
-        // Lưu vào Map
-        this.otpStorage.set(email, otpData);
+        await otpData.save();
         
         // Log thông tin để kiểm tra
-        console.log('Đã lưu OTP:');
-        console.log('Email:', email);
-        console.log('OTP Data:', otpData);
+        console.log('Đã lưu OTP:', {
+          email,
+          otpId: otpData._id,
+          createdAt: otpData.createdAt
+        });
         
         return true;
       } catch (error) {
@@ -51,11 +57,25 @@ class OTPService {
     // Gửi OTP qua email
     async sendOTPByEmail(email) {
       try {
+        // Validate email
+        if (!this.validateEmail(email)) {
+          return {
+            success: false,
+            message: 'Email không hợp lệ'
+          };
+        }
+
         // Tạo mã OTP
         const otp = this.generateOTP();
   
-        // Lưu OTP vào bộ nhớ
-        await this.saveOTP(email, otp);
+        // Lưu OTP vào database
+        const saved = await this.saveOTP(email, otp);
+        if (!saved) {
+          return {
+            success: false,
+            message: 'Không thể lưu OTP'
+          };
+        }
   
         // Cấu hình email
         const mailOptions = {
@@ -127,30 +147,33 @@ class OTPService {
     // Xác thực OTP
     async verifyOTP(email, userProvidedOTP) {
       try {
-        // Lấy OTP từ bộ nhớ
-        const otpData = this.otpStorage.get(email);
-  
+        // Lấy OTP từ database
+        const otpData = await OTP.findOne({ 
+          email,
+          isVerified: false
+        }).sort({ createdAt: -1 });
+
         if (!otpData) {
           return { 
             success: false, 
-            message: 'Không tìm thấy OTP' 
+            message: 'Không tìm thấy OTP hoặc OTP đã được sử dụng' 
           };
         }
-  
-        // Kiểm tra thời gian hết hạn
-        const currentTime = new Date();
-        const timeDiff = (currentTime - otpData.createdAt) / 1000; // Đổi ra giây
-        
-        if (timeDiff > 600) { // 10 phút
-          // Xóa OTP đã hết hạn
-          this.otpStorage.delete(email);
-          
-          return { 
-            success: false, 
-            message: 'OTP đã hết hạn' 
+
+        // Tăng số lần thử
+        otpData.attempts += 1;
+        await otpData.save();
+
+        // Kiểm tra số lần thử
+        if (otpData.attempts > 3) {
+          await OTP.deleteOne({ _id: otpData._id });
+          return {
+            success: false,
+            message: 'Quá nhiều lần thử không thành công. Vui lòng yêu cầu mã OTP mới.'
           };
         }
-  
+
+        // Kiểm tra OTP
         if (otpData.otp !== userProvidedOTP) {
           return { 
             success: false, 
@@ -158,23 +181,10 @@ class OTPService {
           };
         }
 
-        if (Number(otpData.otp) !== Number(userProvidedOTP)) {
-          return { 
-            success: false, 
-            message: 'OTP không chính xác' 
-          };
-        }
+        // Đánh dấu OTP đã được xác thực
+        otpData.isVerified = true;
+        await otpData.save();
 
-        if (String(otpData.otp) !== String(userProvidedOTP)) {
-          return { 
-            success: false, 
-            message: 'OTP không chính xác' 
-          };
-        }
-  
-        // Xóa OTP sau khi xác thực thành công
-        this.otpStorage.delete(email);
-  
         return { 
           success: true, 
           message: 'OTP xác thực thành công' 

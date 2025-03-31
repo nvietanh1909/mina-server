@@ -14,7 +14,7 @@ const otpController = {
       }
 
       const result = await otpService.sendOTPByEmail(email);
-      res.status(200).json(result);
+      res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
       console.error('Lỗi trong sendOTP controller:', error);
       res.status(500).json({
@@ -37,7 +37,7 @@ const otpController = {
       }
 
       const result = await otpService.verifyOTP(email, otp);
-      res.status(200).json(result);
+      res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
       console.error('Lỗi trong verifyOTP controller:', error);
       res.status(500).json({
