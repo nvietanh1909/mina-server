@@ -294,28 +294,47 @@ exports.updateTransaction = async (req, res) => {
 };
 
 exports.deleteTransaction = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const transaction = await Transaction.findOneAndDelete({
+    const transaction = await Transaction.findOne({
       _id: req.params.id,
       userId: req.user.id
-    });
+    }).session(session);
 
     if (!transaction) {
+      await session.abortTransaction();
       return res.status(404).json({
         status: 'error',
         message: 'Không tìm thấy giao dịch'
       });
     }
 
+    // Cập nhật số dư ví
+    const updateAmount = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+    await Wallet.findByIdAndUpdate(
+      transaction.walletId,
+      { $inc: { balance: updateAmount } },
+      { session }
+    );
+
+    // Xóa giao dịch
+    await transaction.deleteOne({ session });
+    await session.commitTransaction();
+
     res.status(200).json({
       status: 'success',
       message: 'Xóa giao dịch thành công'
     });
   } catch (error) {
+    await session.abortTransaction();
     res.status(400).json({
       status: 'error',
       message: error.message
     });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -324,7 +343,7 @@ exports.getTransactionStats = async (req, res) => {
     const { type, category, startDate, endDate } = req.query;
 
     const query = { userId: req.user.id };
-
+n
     if (type) query.type = type;
     if (category) query.category = category;
     

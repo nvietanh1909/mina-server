@@ -30,7 +30,7 @@ const categoryController = {
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: 'Category with this name already exists'
+          message: 'Đã tồn tại category với tên này'
         });
       }
 
@@ -124,7 +124,7 @@ const categoryController = {
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: 'Category with this name already exists'
+          message: 'Đã tồn tại category với tên này'
         });
       }
 
