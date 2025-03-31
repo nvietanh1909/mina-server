@@ -24,16 +24,22 @@ async function getWalletInfo(userId) {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-    const monthlyStats = allTransactions
-      .filter(trans => trans.date >= startOfMonth && trans.date <= endOfMonth)
-      .reduce((acc, trans) => {
-        if (trans.type === 'income') {
-          acc.totalIncome += trans.amount;
-        } else {
-          acc.totalExpense += trans.amount;
-        }
-        return acc;
-      }, { totalIncome: 0, totalExpense: 0 });
+    // Khởi tạo monthlyStats với giá trị mặc định
+    let monthlyStats = { totalIncome: 0, totalExpense: 0 };
+
+    // Chỉ tính toán monthlyStats nếu có giao dịch
+    if (allTransactions.length > 0) {
+      monthlyStats = allTransactions
+        .filter(trans => trans.date >= startOfMonth && trans.date <= endOfMonth)
+        .reduce((acc, trans) => {
+          if (trans.type === 'income') {
+            acc.totalIncome += trans.amount;
+          } else {
+            acc.totalExpense += trans.amount;
+          }
+          return acc;
+        }, { totalIncome: 0, totalExpense: 0 });
+    }
 
     return {
       balance: wallet.balance,
