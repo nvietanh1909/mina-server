@@ -78,7 +78,7 @@ exports.analyzeBill = async (req, res) => {
                - "50k" => 50000
                - "15 usd" => 15 * tỷ giá USD hiện tại
 
-            2. Phân loại hóa đơn vào các danh mục dựa vào text
+            2. Phân loại hóa đơn vào các danh mục dựa vào text cho hợp lý theo ngữ cảnh
             3. Tạo ghi chú ngắn gọn mô tả nội dung chính của hóa đơn
             4. Xử lý ngày tháng:
                - Nếu text có "hom nay" hoặc "ngày này" => ${today}
@@ -94,7 +94,7 @@ exports.analyzeBill = async (req, res) => {
             {
               "amount": số tiền đã quy đổi sang VND (number, không có dấu phẩy/chấm phân cách),
               "date": "YYYY-MM-DD" hoặc null nếu không tìm thấy ngày trong hóa đơn,
-              "category": "PHẢI là một trong các category trong danh sách trên",
+              "category": "PHẢI là một trong các category trong danh sách trên và phù hợp với ngữ cảnh của hóa đơn",
               "notes": "ghi chú ngắn gọn mô tả nội dung hóa đơn (string) (3-5 từ bằng tiếng anh) "
             }`
         },

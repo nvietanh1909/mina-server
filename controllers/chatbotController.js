@@ -141,7 +141,7 @@ exports.generateResponse = async (req, res) => {
             "isTransaction": true,
             "type": "income/expense",
             "amount": number,
-            "notes": "ghi chú giao dịch",
+            "notes": "ghi chú giao dịch (bằng tiếng anh từ 1 - 5 từ)",
             "category": "PHẢI là một trong các category trong danh sách trên",
             "date": "YYYY-MM-DD" // Nếu người dùng chỉ định ngày, sử dụng ngày đó. Nếu không, để trống trường này
           }
