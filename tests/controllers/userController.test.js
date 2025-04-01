@@ -277,6 +277,7 @@ describe('UserController', () => {
       // Act
       await userController.login(req, res);
 
+      
       // Assert
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({

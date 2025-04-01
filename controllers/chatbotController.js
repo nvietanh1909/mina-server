@@ -181,8 +181,8 @@ exports.generateResponse = async (req, res) => {
       if (parsedResponse.type === 'expense' && walletInfo.balance < parsedResponse.amount) {
         responseMessage = 'Số dư trong ví không đủ để thực hiện giao dịch này.';
       } else {
-        // Kiểm tra category tồn tại
-        const categoryInfo = await Category.findOne({ 
+        // Tự động tạo category nếu chưa tồn tại
+        let categoryInfo = await Category.findOne({ 
           $or: [
             { name: parsedResponse.category, userId },
             { name: parsedResponse.category, isDefault: true }
@@ -190,49 +190,19 @@ exports.generateResponse = async (req, res) => {
         }).session(session);
 
         if (!categoryInfo) {
-          // Lấy danh sách category hiện có cho loại giao dịch này
-          const existingCategories = await Category.find({
-            $or: [
-              { userId },
-              { isDefault: true }
+          // Tạo category mới
+          categoryInfo = await Category.create([{
+            name: parsedResponse.category,
+            userId,
+            isDefault: false,
+            icons: [
+              {
+                iconPath: parsedResponse.type === 'income' ? '💰' : '💸',
+                isDefault: true
+              }
             ]
-          }).session(session);
-
-          // Lọc category phù hợp với loại giao dịch (income/expense)
-          const suggestedCategories = existingCategories
-            .filter(cat => {
-              // Các category thường dùng cho income
-              const incomeKeywords = ['salary', 'lương', 'thu nhập', 'bonus', 'thưởng', 'investment', 'đầu tư'];
-              // Các category thường dùng cho expense
-              const expenseKeywords = ['food', 'ăn', 'transport', 'đi lại', 'shopping', 'mua sắm', 'bill', 'hóa đơn'];
-              
-              const name = cat.name.toLowerCase();
-              if (parsedResponse.type === 'income') {
-                return incomeKeywords.some(keyword => name.includes(keyword.toLowerCase()));
-              } else {
-                return expenseKeywords.some(keyword => name.includes(keyword.toLowerCase()));
-              }
-            })
-            .map(cat => ({
-              name: cat.name,
-              icons: cat.icons.map(icon => icon.iconPath)
-            }));
-
-          await session.abortTransaction();
-          return res.status(200).json({
-            success: true,
-            data: {
-              needNewCategory: true,
-              message: `Danh mục "${parsedResponse.category}" chưa tồn tại. Bạn có muốn tạo danh mục mới không?\n\nCác danh mục gợi ý cho giao dịch ${parsedResponse.type === 'income' ? 'thu nhập' : 'chi tiêu'}:\n${suggestedCategories.map(cat => cat.name).join('\n')}\n\nHoặc bạn có thể tạo danh mục mới với tên "${parsedResponse.category}"`,
-              suggestedCategories,
-              transactionData: {
-                amount: parsedResponse.amount,
-                notes: parsedResponse.notes,
-                type: parsedResponse.type,
-                category: parsedResponse.category
-              }
-            }
-          });
+          }], { session });
+          categoryInfo = categoryInfo[0];
         }
 
         // Lấy danh sách icons từ category
@@ -267,6 +237,7 @@ exports.generateResponse = async (req, res) => {
         // Tạo transaction mới với ngày từ parsedResponse nếu có
         const transactionDate = parsedResponse.date ? new Date(parsedResponse.date) : new Date();
         
+        // Tạo transaction mới
         transaction = await Transaction.create([{
           userId,
           walletId: walletInfo.walletId,
@@ -286,14 +257,37 @@ exports.generateResponse = async (req, res) => {
           { session }
         );
 
+        // Lấy thông tin ví đã cập nhật
+        const updatedWallet = await Wallet.findById(walletInfo.walletId).session(session);
+        
         responseMessage = `Đã thêm giao dịch thành công: ${parsedResponse.amount.toLocaleString('vi-VN')} VND ${parsedResponse.type === 'income' ? 'thu nhập' : 'chi tiêu'} cho ${parsedResponse.notes}`;
+
+        // Lưu cuộc hội thoại vào database
+        await Chatbot.create([{
+          userId,
+          message,
+          response: responseMessage
+        }], { session });
+
+        await session.commitTransaction();
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            message,
+            response: responseMessage,
+            transaction: transaction[0],
+            balance: updatedWallet.balance,
+            monthlyStats: walletInfo.monthlyStats
+          }
+        });
       }
     } else {
       responseMessage = botResponse;
     }
 
-    // Lưu cuộc hội thoại vào database
-    const chatbot = await Chatbot.create([{
+    // Lưu cuộc hội thoại vào database cho các trường hợp không phải transaction
+    await Chatbot.create([{
       userId,
       message,
       response: responseMessage
@@ -306,7 +300,7 @@ exports.generateResponse = async (req, res) => {
       data: {
         message,
         response: responseMessage,
-        transaction: transaction ? transaction[0] : null,
+        transaction: null,
         balance: walletInfo.balance,
         monthlyStats: walletInfo.monthlyStats
       }
